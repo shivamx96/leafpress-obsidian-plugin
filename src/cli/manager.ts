@@ -77,7 +77,12 @@ export class BinaryManager {
 
   private getBinaryPath(): string {
     if (this.customBinaryPath) {
-      return this.customBinaryPath;
+      // Expand ~ to home directory
+      let expandedPath = this.customBinaryPath;
+      if (expandedPath.startsWith("~")) {
+        expandedPath = expandedPath.replace(/^~/, os.homedir());
+      }
+      return expandedPath;
     }
 
     const { executable } = this.getPlatformInfo();
