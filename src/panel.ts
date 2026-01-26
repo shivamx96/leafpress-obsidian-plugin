@@ -204,8 +204,14 @@ export class LeafpressPanel extends ItemView {
 
           statusInfo.pendingFiles.slice(0, 5).forEach((file: any) => {
             const li = fileList.createEl("li");
-            const icon =
-              file.status === "added" ? "+" : file.status === "modified" ? "~" : "−";
+            let icon = "?";
+            if (file.status === "added") {
+              icon = "+";
+            } else if (file.status === "modified") {
+              icon = "~";
+            } else if (file.status === "deleted") {
+              icon = "−";
+            }
             li.textContent = `${icon} ${file.file}`;
             li.style.fontSize = "0.85rem";
             li.style.marginBottom = "2px";
@@ -413,39 +419,63 @@ export class LeafpressPanel extends ItemView {
         lastDeployStr = "Just now";
       }
 
-      // Get current _site files and compare with lastDeploy.filesDeployed
+      // Load config to get ignore patterns
+      const config = await readLeafpressConfig(this.app);
+      const ignorePatterns = config?.ignore || [];
+      const defaultIgnore = [".DS_Store", "Thumbs.db", ".obsidian", "_site"];
+
+      const shouldIgnore = (filePath: string): boolean => {
+        const normalized = filePath.replace(/^\//, "");
+        // Check default ignores
+        for (const pattern of defaultIgnore) {
+          if (normalized.startsWith(pattern)) return true;
+        }
+        // Check config ignores
+        for (const pattern of ignorePatterns) {
+          if (normalized.includes(pattern)) return true;
+        }
+        return false;
+      };
+
+      // Compare source files with deployed state
       const pendingFiles: Array<{ status: string; file: string }> = [];
-      const siteDir = path.join(vaultPath, "_site");
 
       try {
-        const currentFiles = await this.getAllFilesInDir(siteDir);
-        const deployedFiles = Object.keys(lastDeploy.filesDeployed || {});
+        // Get current source files and their hashes
+        const currentSourceFiles = await this.getSourceFilesWithHashes(vaultPath);
+        const deployedSourceFiles = lastDeploy.sourceFiles || {};
 
-        // Find added files (exist now but not in last deploy)
-        for (const file of currentFiles) {
-          if (!deployedFiles.includes(file)) {
+        // Find modified, added files
+        for (const [file, hash] of Object.entries(currentSourceFiles)) {
+          if (shouldIgnore(file)) continue;
+
+          const deployedHash = deployedSourceFiles[file as string];
+          if (!deployedHash) {
             pendingFiles.push({
               status: "added",
-              file: file.replace(/^\//, ""), // Remove leading slash
+              file: file.replace(/^\//, ""),
+            });
+          } else if (deployedHash !== hash) {
+            pendingFiles.push({
+              status: "modified",
+              file: file.replace(/^\//, ""),
             });
           }
         }
 
-        // Find deleted files (existed in last deploy but not now)
-        for (const file of deployedFiles) {
-          if (!currentFiles.includes(file)) {
+        // Find deleted files
+        for (const file of Object.keys(deployedSourceFiles)) {
+          if (shouldIgnore(file)) continue;
+
+          if (!currentSourceFiles[file]) {
             pendingFiles.push({
               status: "deleted",
-              file: file.replace(/^\//, ""), // Remove leading slash
+              file: file.replace(/^\//, ""),
             });
           }
         }
-
-        // Note: Modified detection would require comparing hashes
-        // which is complex without the full build output
       } catch (err) {
-        console.log("[leafpress] Could not scan _site directory:", err);
-        // Fallback: assume there might be pending files
+        console.log("[leafpress] Could not scan source files:", err);
       }
 
       console.log("[leafpress] Parsed deployment status:", {
@@ -465,6 +495,59 @@ export class LeafpressPanel extends ItemView {
       console.error("[leafpress] Error getting deployment status:", err);
       return null;
     }
+  }
+
+  private async getSourceFilesWithHashes(
+    vaultPath: string
+  ): Promise<Record<string, string>> {
+    const files: Record<string, string> = {};
+    const adapter = this.app.vault.adapter as any;
+
+    const walkDir = async (currentDir: string, baseLength: number) => {
+      try {
+        const contents = await adapter.list(currentDir);
+
+        if (contents.files) {
+          for (const file of contents.files) {
+            // Skip non-markdown and non-json files
+            if (!file.endsWith(".md") && !file.endsWith(".json")) continue;
+
+            const relativePath = `/${file.substring(baseLength)}`;
+            try {
+              const content = await adapter.read(file);
+              // Simple hash: use first 40 chars of sha1-like hash (we'll use a basic approach)
+              const hash = this.simpleHash(content);
+              files[relativePath] = hash;
+            } catch (err) {
+              console.log(`[leafpress] Error reading file ${file}:`, err);
+            }
+          }
+        }
+
+        if (contents.folders) {
+          for (const folder of contents.folders) {
+            await walkDir(folder, baseLength);
+          }
+        }
+      } catch (err) {
+        console.log(`[leafpress] Error walking directory ${currentDir}:`, err);
+      }
+    };
+
+    const baseLength = vaultPath.length + 1;
+    await walkDir(vaultPath, baseLength);
+    return files;
+  }
+
+  private simpleHash(content: string): string {
+    // Simple hash for comparison - not cryptographic, just for detecting changes
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16).padStart(40, "0");
   }
 
   private async getAllFilesInDir(dir: string): Promise<string[]> {
