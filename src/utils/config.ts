@@ -76,3 +76,22 @@ export async function updateFeatureToggle(
   await writeLeafpressConfig(app, config);
   console.log(`[leafpress] Feature '${feature}' saved to leafpress.json`);
 }
+
+export async function updateSiteProperty(
+  app: App,
+  property: "title" | "author" | "description" | "baseURL" | "image",
+  value: string
+): Promise<void> {
+  const config = await readLeafpressConfig(app);
+  if (!config) {
+    throw new Error("leafpress.json not found. Initialize your site first.");
+  }
+
+  if (value) {
+    config[property] = value;
+  } else {
+    delete config[property];
+  }
+
+  await writeLeafpressConfig(app, config);
+}

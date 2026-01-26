@@ -7,6 +7,7 @@ import {
   readLeafpressConfig,
   updateThemeProperty,
   updateFeatureToggle,
+  updateSiteProperty,
 } from "./utils/config";
 import {
   LIGHT_GRADIENTS,
@@ -273,6 +274,10 @@ class LeafpressSettingTab extends PluginSettingTab {
       return;
     }
 
+    // Site Info
+    new Setting(containerEl).setName("Site").setHeading();
+    this.displaySiteInfo(containerEl);
+
     // Theme Configuration
     new Setting(containerEl).setName("Theme").setHeading();
     this.displayFontSettings(containerEl);
@@ -310,6 +315,72 @@ class LeafpressSettingTab extends PluginSettingTab {
             setTimeout(() => {
               this.display();
             }, 1000);
+          })
+      );
+  }
+
+  private displaySiteInfo(containerEl: HTMLElement): void {
+    const config = this.currentConfig;
+
+    new Setting(containerEl)
+      .setName("Title")
+      .setDesc("Your site's title")
+      .addText((text) =>
+        text
+          .setPlaceholder("My Digital Garden")
+          .setValue(config?.title || "")
+          .onChange(async (value) => {
+            await updateSiteProperty(this.app, "title", value);
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Description")
+      .setDesc("Short description for SEO and social sharing")
+      .addText((text) => {
+        text
+          .setPlaceholder("A collection of my notes and thoughts")
+          .setValue(config?.description || "")
+          .onChange(async (value) => {
+            await updateSiteProperty(this.app, "description", value);
+          });
+        text.inputEl.style.width = "300px";
+      });
+
+    new Setting(containerEl)
+      .setName("Author")
+      .setDesc("Your name")
+      .addText((text) =>
+        text
+          .setPlaceholder("John Doe")
+          .setValue(config?.author || "")
+          .onChange(async (value) => {
+            await updateSiteProperty(this.app, "author", value);
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Base URL")
+      .setDesc("Your site's URL (for sitemap and canonical links)")
+      .addText((text) => {
+        text
+          .setPlaceholder("https://example.com")
+          .setValue(config?.baseURL || "")
+          .onChange(async (value) => {
+            await updateSiteProperty(this.app, "baseURL", value);
+          });
+        text.inputEl.style.width = "300px";
+      });
+
+    new Setting(containerEl)
+      .setName("Social Image")
+      .setDesc("Default image for social sharing (og:image)")
+      .addText((text) =>
+        text
+          .setPlaceholder("/static/og-image.png")
+          .setValue(config?.image || "")
+          .onChange(async (value) => {
+            await updateSiteProperty(this.app, "image", value);
           })
       );
   }
