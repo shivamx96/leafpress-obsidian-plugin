@@ -442,7 +442,7 @@ export class LeafpressPanel extends ItemView {
 
       try {
         // Get current source files and their hashes
-        const currentSourceFiles = await this.getSourceFilesWithHashes(vaultPath);
+        const currentSourceFiles = await this.getSourceFilesWithHashes();
         const deployedSourceFiles = lastDeploy.sourceFiles || {};
 
         // Find modified, added files
@@ -497,45 +497,94 @@ export class LeafpressPanel extends ItemView {
     }
   }
 
-  private async getSourceFilesWithHashes(
-    vaultPath: string
-  ): Promise<Record<string, string>> {
+  private async getSourceFilesWithHashes(): Promise<Record<string, string>> {
     const files: Record<string, string> = {};
-    const adapter = this.app.vault.adapter as any;
 
-    const walkDir = async (currentDir: string, baseLength: number) => {
-      try {
-        const contents = await adapter.list(currentDir);
+    // Load config to get ignore patterns and output directory
+    const config = await readLeafpressConfig(this.app);
+    const ignorePatterns = config?.ignore || [];
+    const outputDir = config?.outputDir || "_site";
 
-        if (contents.files) {
-          for (const file of contents.files) {
-            // Skip non-markdown and non-json files
-            if (!file.endsWith(".md") && !file.endsWith(".json")) continue;
-
-            const relativePath = `/${file.substring(baseLength)}`;
-            try {
-              const content = await adapter.read(file);
-              // Simple hash: use first 40 chars of sha1-like hash (we'll use a basic approach)
-              const hash = this.simpleHash(content);
-              files[relativePath] = hash;
-            } catch (err) {
-              console.log(`[leafpress] Error reading file ${file}:`, err);
-            }
-          }
-        }
-
-        if (contents.folders) {
-          for (const folder of contents.folders) {
-            await walkDir(folder, baseLength);
-          }
-        }
-      } catch (err) {
-        console.log(`[leafpress] Error walking directory ${currentDir}:`, err);
-      }
+    // Reserved paths (matching backend logic from leafpress CLI)
+    const reservedPaths: Record<string, boolean> = {
+      "leafpress.json": true,
+      "style.css": true,
+      "static": true,
+      "_site": true,
+      ".leafpress": true,
+      ".git": true,
+      ".gitignore": true,
+      ".obsidian": true,
+      "node_modules": true,
+      "docs": true,
     };
 
-    const baseLength = vaultPath.length + 1;
-    await walkDir(vaultPath, baseLength);
+    // Files to skip (matching backend)
+    const skipFiles: Record<string, boolean> = {
+      ".leafpress-deploy-state.json": true,
+      ".DS_Store": true,
+      "Thumbs.db": true,
+    };
+
+    // Add output directory to reserved paths
+    reservedPaths[outputDir] = true;
+
+    const shouldSkipDir = (dirName: string): boolean => {
+      // Skip hidden directories
+      if (dirName.startsWith(".")) return true;
+      // Skip reserved paths
+      if (reservedPaths[dirName]) return true;
+      // Skip user-configured ignore patterns
+      for (const pattern of ignorePatterns) {
+        if (dirName === pattern) return true;
+      }
+      return false;
+    };
+
+    const shouldSkipFile = (fileName: string): boolean => {
+      // Skip hidden files
+      if (fileName.startsWith(".")) return true;
+      // Skip specific files
+      if (skipFiles[fileName]) return true;
+      return false;
+    };
+
+    // Get all markdown files from vault
+    const markdownFiles = this.app.vault.getMarkdownFiles();
+
+    for (const file of markdownFiles) {
+      const filePath = file.path;
+      const pathParts = filePath.split("/");
+      const fileName = pathParts[pathParts.length - 1];
+      const topLevelDir = pathParts[0];
+
+      // Skip if in reserved/ignored directory
+      if (pathParts.length > 1 && shouldSkipDir(topLevelDir)) {
+        continue;
+      }
+
+      // Skip ignored files
+      if (shouldSkipFile(fileName)) {
+        continue;
+      }
+
+      try {
+        const content = await this.app.vault.cachedRead(file);
+        const hash = this.simpleHash(content);
+        files[`/${filePath}`] = hash;
+      } catch (err) {
+        console.log(`[leafpress] Error reading file ${filePath}:`, err);
+      }
+    }
+
+    // Also include leafpress.json for tracking config changes
+    try {
+      const configContent = await this.app.vault.adapter.read("leafpress.json");
+      files["/leafpress.json"] = this.simpleHash(configContent);
+    } catch (err) {
+      // Config might not exist
+    }
+
     return files;
   }
 
