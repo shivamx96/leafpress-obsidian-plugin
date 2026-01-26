@@ -222,6 +222,154 @@ export class BinaryManager {
     });
   }
 
+  async checkForUpdates(): Promise<{ currentVersion: string; latestVersion: string; hasUpdate: boolean } | null> {
+    try {
+      const REPO = "shivamx96/leafpress";
+      const releaseResponse = await requestUrl({
+        url: `https://api.github.com/repos/${REPO}/releases/latest`,
+        headers: {
+          "User-Agent": "obsidian-leafpress-plugin"
+        }
+      });
+
+      if (releaseResponse.status !== 200) {
+        throw new Error(`GitHub API error: ${releaseResponse.status}`);
+      }
+
+      const release = JSON.parse(releaseResponse.text) as any;
+      let latestVersion = release.tag_name || release.version || "unknown";
+      // Clean up version (remove leading 'v')
+      latestVersion = latestVersion.replace(/^v/, "");
+
+      // Try to get current version from binary or default to 0.0.0
+      let currentVersion = "0.0.0";
+      try {
+        const result = await this.execCommand(["--version"]);
+        if (result.success) {
+          // Match versions like: 1.0.0, v1.0.0, 1.0.0-alpha, 1.0.0-alpha.1, 1.0.0-beta.2
+          const match = result.stdout.match(/v?(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)/);
+          currentVersion = match ? match[1] : "0.0.0";
+        }
+      } catch (err) {
+        console.log("[leafpress] Could not determine current version");
+      }
+
+      const hasUpdate = this.compareVersions(currentVersion, latestVersion) < 0;
+
+      return {
+        currentVersion,
+        latestVersion,
+        hasUpdate
+      };
+    } catch (err) {
+      console.error("[leafpress] Error checking for updates:", err);
+      return null;
+    }
+  }
+
+  async updateBinary(): Promise<void> {
+    if (this.customBinaryPath) {
+      throw new Error("Cannot update custom binary path. Remove custom path from settings first.");
+    }
+
+    const { executable } = this.getPlatformInfo();
+    const binaryPath = this.getBinaryPath();
+    const binDir = path.dirname(binaryPath);
+
+    try {
+      // Backup current binary
+      const backupPath = binaryPath + ".backup";
+      try {
+        await fs.copyFile(binaryPath, backupPath);
+        console.log("[leafpress] Backed up current binary to:", backupPath);
+      } catch (err) {
+        console.log("[leafpress] Could not backup binary:", err);
+      }
+
+      // Download and install new version
+      await this.downloadBinary();
+
+      // Clean up backup
+      try {
+        await fs.unlink(backupPath);
+      } catch (err) {
+        console.log("[leafpress] Could not remove backup:", err);
+      }
+
+      new Notice("✓ leafpress CLI updated successfully");
+    } catch (err) {
+      console.error("[leafpress] Error updating binary:", err);
+      // Try to restore from backup
+      const backupPath = binaryPath + ".backup";
+      try {
+        await fs.copyFile(backupPath, binaryPath);
+        new Notice("✗ Update failed, restored previous version");
+      } catch (restoreErr) {
+        new Notice("✗ Update failed and could not restore backup");
+      }
+      throw err;
+    }
+  }
+
+  private compareVersions(v1: string, v2: string): number {
+    // Parse semantic versions with pre-release identifiers
+    // e.g., "1.0.0", "1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-beta.2"
+
+    const parseVersion = (v: string): { major: number; minor: number; patch: number; prerelease: string } => {
+      const cleanVersion = v.replace(/^v/, ""); // Remove leading 'v'
+      const [baseVersion, prerelease] = cleanVersion.split("-");
+      const [major, minor, patch] = baseVersion.split(".").map(p => parseInt(p, 10) || 0);
+      return { major, minor, patch, prerelease: prerelease || "" };
+    };
+
+    const parsed1 = parseVersion(v1);
+    const parsed2 = parseVersion(v2);
+
+    // Compare major.minor.patch
+    if (parsed1.major !== parsed2.major) return parsed1.major > parsed2.major ? 1 : -1;
+    if (parsed1.minor !== parsed2.minor) return parsed1.minor > parsed2.minor ? 1 : -1;
+    if (parsed1.patch !== parsed2.patch) return parsed1.patch > parsed2.patch ? 1 : -1;
+
+    // Both have same base version, compare pre-release
+    // No pre-release > has pre-release (1.0.0 > 1.0.0-alpha)
+    if (!parsed1.prerelease && parsed2.prerelease) return 1;
+    if (parsed1.prerelease && !parsed2.prerelease) return -1;
+    if (!parsed1.prerelease && !parsed2.prerelease) return 0;
+
+    // Both have pre-release, compare them
+    const pre1Parts = parsed1.prerelease.split(".");
+    const pre2Parts = parsed2.prerelease.split(".");
+
+    for (let i = 0; i < Math.max(pre1Parts.length, pre2Parts.length); i++) {
+      const part1 = pre1Parts[i];
+      const part2 = pre2Parts[i];
+
+      // Missing parts: shorter version is less than longer
+      if (part1 === undefined && part2 !== undefined) return -1;
+      if (part1 !== undefined && part2 === undefined) return 1;
+      if (part1 === undefined && part2 === undefined) return 0;
+
+      // Try to parse as numbers
+      const num1 = parseInt(part1!, 10);
+      const num2 = parseInt(part2!, 10);
+      const isNum1 = !isNaN(num1);
+      const isNum2 = !isNaN(num2);
+
+      if (isNum1 && isNum2) {
+        if (num1 !== num2) return num1 > num2 ? 1 : -1;
+      } else if (isNum1) {
+        return -1; // numbers come before strings
+      } else if (isNum2) {
+        return 1;
+      } else {
+        // String comparison
+        if (part1 !== part2) return part1! > part2! ? 1 : -1;
+      }
+    }
+
+    return 0;
+  }
+
   async execCommand(args: string[]): Promise<CLIResult> {
     await this.ensureBinary();
 

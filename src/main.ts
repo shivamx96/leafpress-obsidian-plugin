@@ -202,6 +202,76 @@ class LeafpressSettingTab extends PluginSettingTab {
           })
       );
 
+    new Setting(containerEl)
+      .setName("Check for Updates")
+      .setDesc("Check for new versions of the leafpress CLI")
+      .addButton((btn) =>
+        btn
+          .setButtonText("Check for Updates")
+          .onClick(async () => {
+            btn.setDisabled(true);
+            btn.setButtonText("Checking...");
+
+            try {
+              const updateInfo = await this.plugin.binaryManager.checkForUpdates();
+              if (!updateInfo) {
+                new Notice("Could not check for updates");
+                btn.setButtonText("Check for Updates");
+                btn.setDisabled(false);
+                return;
+              }
+
+              if (updateInfo.hasUpdate) {
+                new Notice(
+                  `Update available: ${updateInfo.currentVersion} → ${updateInfo.latestVersion}`
+                );
+
+                // Show update dialog
+                const confirmed = await new Promise<boolean>((resolve) => {
+                  const modal = new Modal(this.app);
+                  modal.contentEl.createEl("h2", { text: "leafpress Update Available" });
+                  modal.contentEl.createEl("p", {
+                    text: `A new version is available: ${updateInfo.currentVersion} → ${updateInfo.latestVersion}`,
+                  });
+
+                  const buttonContainer = modal.contentEl.createDiv();
+                  buttonContainer.style.display = "flex";
+                  buttonContainer.style.gap = "8px";
+                  buttonContainer.style.justifyContent = "flex-end";
+                  buttonContainer.style.marginTop = "16px";
+
+                  const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" });
+                  cancelBtn.addEventListener("click", () => {
+                    resolve(false);
+                    modal.close();
+                  });
+
+                  const updateBtn = buttonContainer.createEl("button", { text: "Update Now" });
+                  updateBtn.addEventListener("click", () => {
+                    resolve(true);
+                    modal.close();
+                  });
+
+                  modal.open();
+                });
+
+                if (confirmed) {
+                  new Notice("Updating leafpress CLI...");
+                  await this.plugin.binaryManager.updateBinary();
+                }
+              } else {
+                new Notice(`✓ Already up to date (${updateInfo.currentVersion})`);
+              }
+            } catch (err) {
+              new Notice(`Error checking updates: ${err}`);
+              console.error(err);
+            } finally {
+              btn.setButtonText("Check for Updates");
+              btn.setDisabled(false);
+            }
+          })
+      );
+
     containerEl.createEl("hr", { cls: "leafpress-divider" });
   }
 
