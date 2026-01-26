@@ -83,7 +83,7 @@ export class CommandHandlers {
 
   private isServerRunning(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn("sh", ["-c", "lsof -ti:3000"]);
+      const proc = spawn("lsof", ["-t", "-i", ":3000"]);
       let output = "";
 
       proc.stdout?.on("data", (data) => {
@@ -135,7 +135,7 @@ export class CommandHandlers {
         findProc.on("error", () => resolve());
       } else {
         // Unix: use lsof
-        const findProc = spawn("lsof", ["-ti", `:${port}`]);
+        const findProc = spawn("lsof", ["-t", "-i", `:${port}`]);
         let pids = "";
 
         findProc.stdout?.on("data", (data) => {

@@ -2,7 +2,7 @@ import { Plugin, PluginSettingTab, App, Setting, Notice, Modal } from "obsidian"
 import { BinaryManager } from "./cli/manager";
 import { CommandHandlers } from "./cli/handlers";
 import { LeafpressPanel, VIEW_TYPE_LEAFPRESS } from "./panel";
-import { LeafpressConfig, DeploySettings } from "./cli/types";
+import { LeafpressConfig, DeploySettings, DeployProvider } from "./cli/types";
 import {
   readLeafpressConfig,
   updateThemeProperty,
@@ -705,10 +705,11 @@ class LeafpressSettingTab extends PluginSettingTab {
         dd.setValue(provider);
         dd.onChange(async (value) => {
           if (!config) return;
+          const provider = value as DeployProvider;
           if (!config.deploy) {
-            config.deploy = { provider: value as any, settings: {} };
+            config.deploy = { provider, settings: {} };
           } else {
-            config.deploy.provider = value as any;
+            config.deploy.provider = provider;
           }
           const { writeLeafpressConfig } = await import("./utils/config");
           await writeLeafpressConfig(this.app, config);

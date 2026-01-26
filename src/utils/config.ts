@@ -1,5 +1,5 @@
 import { App, Notice } from "obsidian";
-import { LeafpressConfig } from "../cli/types";
+import { LeafpressConfig, FeatureToggleKey } from "../cli/types";
 
 export async function readLeafpressConfig(
   app: App
@@ -70,7 +70,7 @@ export async function updateThemeProperty(
 
 export async function updateFeatureToggle(
   app: App,
-  feature: string,
+  feature: FeatureToggleKey,
   enabled: boolean
 ): Promise<boolean> {
   try {
@@ -80,7 +80,7 @@ export async function updateFeatureToggle(
       return false;
     }
 
-    (config as any)[feature] = enabled;
+    config[feature] = enabled;
     await writeLeafpressConfig(app, config);
     return true;
   } catch (err) {

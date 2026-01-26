@@ -61,14 +61,16 @@ export class LeafpressPanel extends ItemView {
 
   async onOpen() {
     try {
-      console.log("[leafpress] Panel onOpen called");
 
       // Set up file change listener on first call
       if (!this.fileChangeListener) {
         this.fileChangeListener = this.app.vault.on("modify", async (file) => {
-          // Refresh when deployment state or _site directory changes
-          if (file.name === ".leafpress-deploy-state.json" || file.path.startsWith("_site/")) {
-            console.log("[leafpress] File changed, refreshing panel");
+          // Refresh when markdown files, deployment state, or _site directory changes
+          if (
+            file.path.endsWith(".md") ||
+            file.name === ".leafpress-deploy-state.json" ||
+            file.path.startsWith("_site/")
+          ) {
             this.renderPanel();
           }
         });
@@ -266,7 +268,6 @@ export class LeafpressPanel extends ItemView {
         });
       }
 
-      console.log("[leafpress] Panel rendered successfully");
     } catch (err) {
       console.error("[leafpress] Error rendering panel:", err);
       const container = this.containerEl.children[1];
@@ -277,7 +278,7 @@ export class LeafpressPanel extends ItemView {
 
   private isServerRunning(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn("sh", ["-c", "lsof -ti:3000"]);
+      const proc = spawn("lsof", ["-t", "-i", ":3000"]);
       let output = "";
 
       proc.stdout?.on("data", (data) => {
@@ -328,11 +329,12 @@ export class LeafpressPanel extends ItemView {
   }
 
   private async startServer(): Promise<void> {
-    if (!this.binaryManager) return;
+    if (!this.binaryManager) {
+      return;
+    }
 
     // Prevent race condition from multiple rapid clicks
     if (this.isStartingServer) {
-      console.log("[leafpress] Server start already in progress");
       return;
     }
 
@@ -343,7 +345,6 @@ export class LeafpressPanel extends ItemView {
       if (this.serverProcess) {
         this.binaryManager.stopServerProcess(this.serverProcess);
         this.serverProcess = null;
-        // Brief pause for cleanup
         await new Promise((r) => setTimeout(r, 500));
       }
 
@@ -352,22 +353,19 @@ export class LeafpressPanel extends ItemView {
 
       if (result.error) {
         new Notice(`Failed to start server: ${result.error}`);
-        console.error("[leafpress] Server start error:", result.error);
         return;
       }
 
       this.serverProcess = result.process;
 
-      // Handle unexpected server exit
-      this.serverProcess.on("exit", (code) => {
-        console.log("[leafpress] Server process exited with code:", code);
-        this.serverProcess = null;
-        this.renderPanel();
-      });
-
-      console.log("[leafpress] Server process started");
+      if (this.serverProcess) {
+        // Handle unexpected server exit
+        this.serverProcess.on("exit", () => {
+          this.serverProcess = null;
+          this.renderPanel();
+        });
+      }
     } catch (err) {
-      console.error("[leafpress] Error starting server:", err);
       new Notice(`Error starting server: ${err}`);
     } finally {
       this.isStartingServer = false;
@@ -383,6 +381,8 @@ export class LeafpressPanel extends ItemView {
         // Fallback: kill by port if we lost the process reference
         await this.killPortProcess(3000);
       }
+      // Wait for process to actually terminate
+      await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (err) {
       console.error("[leafpress] Error stopping server:", err);
     }
@@ -391,7 +391,7 @@ export class LeafpressPanel extends ItemView {
   private killPortProcess(port: number): Promise<void> {
     return new Promise((resolve) => {
       // First, find PIDs using the port
-      const findProc = spawn("lsof", ["-ti", `:${port}`]);
+      const findProc = spawn("lsof", ["-t", "-i", `:${port}`]);
       let pids = "";
 
       findProc.stdout?.on("data", (data) => {
@@ -418,7 +418,6 @@ export class LeafpressPanel extends ItemView {
             }
           }
         }
-        console.log(`[leafpress] Killed ${killed} processes on port ${port}`);
         resolve();
       });
 
@@ -431,15 +430,14 @@ export class LeafpressPanel extends ItemView {
       const startTime = Date.now();
       const checkInterval = setInterval(async () => {
         const isReady = await this.isServerRunning();
-        if (isReady || Date.now() - startTime > timeoutMs) {
+        const elapsed = Date.now() - startTime;
+        if (isReady || elapsed > timeoutMs) {
           clearInterval(checkInterval);
-          // Remove from active intervals
           const idx = this.activeIntervals.indexOf(checkInterval);
           if (idx > -1) this.activeIntervals.splice(idx, 1);
           resolve();
         }
       }, 200);
-      // Track interval for cleanup on close
       this.activeIntervals.push(checkInterval);
     });
   }
@@ -554,13 +552,6 @@ export class LeafpressPanel extends ItemView {
       } catch (err) {
         console.log("[leafpress] Could not scan source files:", err);
       }
-
-      console.log("[leafpress] Parsed deployment status:", {
-        pendingCount: pendingFiles.length,
-        lastDeploy: lastDeployStr,
-        url: lastDeploy.url,
-        fileCount: pendingFiles.length,
-      });
 
       return {
         pendingCount: pendingFiles.length,
@@ -708,8 +699,6 @@ export class LeafpressPanel extends ItemView {
   }
 
   async onClose() {
-    console.log("[leafpress] Panel closed");
-
     // Clear any active intervals
     for (const interval of this.activeIntervals) {
       clearInterval(interval);

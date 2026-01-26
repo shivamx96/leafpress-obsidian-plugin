@@ -3,7 +3,8 @@ import { spawn, ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import * as path from "path";
 import * as os from "os";
-import { CLIResult } from "./types";
+import * as crypto from "crypto";
+import { CLIResult, GitHubRelease, GitHubAsset } from "./types";
 
 export class BinaryManager {
   private app: App;
@@ -94,7 +95,6 @@ export class BinaryManager {
     // First escape dots, then replace * with .*
     const escaped = pattern.replace(/\./g, '\\.');
     const regex = new RegExp(`^${escaped.replace(/\*/g, '.*')}$`);
-    console.log('[leafpress] Pattern:', pattern, '-> Regex:', regex, 'Asset:', assetName, 'Match:', regex.test(assetName));
     return regex.test(assetName);
   }
 
@@ -127,7 +127,6 @@ export class BinaryManager {
 
     try {
       // Fetch latest release info using Obsidian's requestUrl (handles CORS)
-      console.log('[leafpress] Fetching latest release...');
       const releaseResponse = await requestUrl({
         url: `https://api.github.com/repos/${REPO}/releases/latest`,
         headers: {
@@ -139,11 +138,10 @@ export class BinaryManager {
         throw new Error(`GitHub API error: ${releaseResponse.status}`);
       }
 
-      const release = JSON.parse(releaseResponse.text) as any;
-      console.log('[leafpress] Available assets:', release.assets.map((a: any) => a.name));
+      const release: GitHubRelease = JSON.parse(releaseResponse.text);
 
       // Find asset matching pattern
-      const asset = release.assets.find((a: any) => this.matchAssetName(assetName, a.name));
+      const asset = release.assets.find((a) => this.matchAssetName(assetName, a.name));
 
       if (!asset) {
         throw new Error(`Binary not found. Expected pattern: ${assetName}`);
@@ -168,8 +166,16 @@ export class BinaryManager {
       }
 
       // Save archive temporarily
+      const archiveData = new Uint8Array(archiveResponse.arrayBuffer);
       const archivePath = path.join(binDir, asset.name);
-      await fs.writeFile(archivePath, new Uint8Array(archiveResponse.arrayBuffer));
+      await fs.writeFile(archivePath, archiveData);
+
+      // Verify checksum if available
+      const checksumValid = await this.verifyChecksum(release.assets, asset.name, archiveData);
+      if (checksumValid === false) {
+        await fs.unlink(archivePath);
+        throw new Error("Checksum verification failed - download may be corrupted");
+      }
 
       // Extract based on file type
       if (asset.name.endsWith('.tar.gz')) {
@@ -235,6 +241,80 @@ export class BinaryManager {
     });
   }
 
+  /**
+   * Verify downloaded file checksum against checksums file from release.
+   * Returns true if valid, false if invalid, null if no checksums available.
+   */
+  private async verifyChecksum(
+    assets: GitHubAsset[],
+    assetName: string,
+    data: Uint8Array
+  ): Promise<boolean | null> {
+    // Look for checksums file in release assets
+    const checksumAsset = assets.find(
+      (a) =>
+        a.name === "checksums.txt" ||
+        a.name === "SHA256SUMS" ||
+        a.name.toLowerCase().includes("checksum")
+    );
+
+    if (!checksumAsset) {
+      console.log("[leafpress] No checksums file found in release, skipping verification");
+      return null;
+    }
+
+    try {
+      // Download checksums file
+      const checksumResponse = await requestUrl({
+        url: checksumAsset.browser_download_url,
+        headers: { "User-Agent": "obsidian-leafpress-plugin" },
+      });
+
+      if (checksumResponse.status !== 200) {
+        console.warn("[leafpress] Failed to download checksums file");
+        return null;
+      }
+
+      // Parse checksums file (format: "hash  filename" or "hash filename")
+      const checksumText = checksumResponse.text;
+      const lines = checksumText.split("\n");
+      let expectedHash: string | null = null;
+
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 2 && parts[1] === assetName) {
+          expectedHash = parts[0].toLowerCase();
+          break;
+        }
+      }
+
+      if (!expectedHash) {
+        console.warn(`[leafpress] No checksum found for ${assetName}`);
+        return null;
+      }
+
+      // Calculate SHA256 of downloaded data
+      const actualHash = crypto
+        .createHash("sha256")
+        .update(data)
+        .digest("hex")
+        .toLowerCase();
+
+      console.log(`[leafpress] Checksum verification: expected=${expectedHash}, actual=${actualHash}`);
+
+      if (actualHash !== expectedHash) {
+        console.error("[leafpress] Checksum mismatch!");
+        return false;
+      }
+
+      console.log("[leafpress] Checksum verified successfully");
+      return true;
+    } catch (err) {
+      console.warn("[leafpress] Error verifying checksum:", err);
+      return null;
+    }
+  }
+
   async checkForUpdates(): Promise<{ currentVersion: string; latestVersion: string; hasUpdate: boolean } | null> {
     try {
       const REPO = "shivamx96/leafpress";
@@ -249,8 +329,8 @@ export class BinaryManager {
         throw new Error(`GitHub API error: ${releaseResponse.status}`);
       }
 
-      const release = JSON.parse(releaseResponse.text) as any;
-      let latestVersion = release.tag_name || release.version || "unknown";
+      const release: GitHubRelease = JSON.parse(releaseResponse.text);
+      let latestVersion = release.tag_name || "unknown";
       // Clean up version (remove leading 'v')
       latestVersion = latestVersion.replace(/^v/, "");
 
@@ -447,11 +527,11 @@ export class BinaryManager {
    * Start a long-running server process. Returns the child process
    * so caller can manage its lifecycle. Does not timeout.
    */
-  async startServerProcess(): Promise<{ process: ChildProcess; error?: string }> {
+  async startServerProcess(): Promise<{ process: ChildProcess | null; error?: string }> {
     try {
       await this.ensureBinary();
     } catch (err) {
-      return { process: null as any, error: `Failed to ensure binary: ${err}` };
+      return { process: null, error: `Failed to ensure binary: ${err}` };
     }
 
     const child = spawn(this.getBinaryPath(), ["serve"], {

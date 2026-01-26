@@ -5,6 +5,25 @@ export interface CLIResult {
   code: number;
 }
 
+// GitHub Release API response types
+export interface GitHubAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+export interface GitHubRelease {
+  tag_name: string;
+  name: string;
+  assets: GitHubAsset[];
+}
+
+// Deploy provider type
+export type DeployProvider = "github-pages" | "vercel" | "netlify";
+
+// Feature toggle keys that can be updated
+export type FeatureToggleKey = "graph" | "toc" | "search" | "wikilinks" | "backlinks";
+
 export interface DeployResult {
   url: string;
   provider: "github-pages" | "vercel";
@@ -25,8 +44,8 @@ export interface LeafpressThemeConfig {
 }
 
 export interface DeploySettings {
-  provider: "github-pages" | "vercel" | "netlify";
-  settings?: Record<string, any>;
+  provider: DeployProvider;
+  settings?: Record<string, unknown>;
 }
 
 export interface LeafpressConfig {
