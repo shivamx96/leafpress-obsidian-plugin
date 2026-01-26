@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Notice } from "obsidian";
+import { ItemView, WorkspaceLeaf, Notice, EventRef } from "obsidian";
 import { spawn } from "child_process";
 import * as path from "path";
 import { BinaryManager } from "./cli/manager";
@@ -10,8 +10,7 @@ export const VIEW_TYPE_LEAFPRESS = "leafpress-view";
 export class LeafpressPanel extends ItemView {
   private binaryManager: BinaryManager | null = null;
   private vaultPath: string | null = null;
-  private statusRefreshInterval: NodeJS.Timer | null = null;
-  private isRefreshing = false;
+  private fileChangeListener: EventRef | null = null;
 
   constructor(leaf: WorkspaceLeaf, binaryManager?: BinaryManager) {
     super(leaf);
@@ -60,16 +59,30 @@ export class LeafpressPanel extends ItemView {
     try {
       console.log("[leafpress] Panel onOpen called");
 
-      // Set up refresh interval only on first call (not during refreshes)
-      if (!this.isRefreshing && !this.statusRefreshInterval) {
-        this.statusRefreshInterval = setInterval(() => {
-          this.isRefreshing = true;
-          this.onOpen().finally(() => {
-            this.isRefreshing = false;
-          });
-        }, 2000);
+      // Set up file change listener on first call
+      if (!this.fileChangeListener) {
+        this.fileChangeListener = this.app.vault.on("modify", async (file) => {
+          // Refresh when deployment state or _site directory changes
+          if (file.name === ".leafpress-deploy-state.json" || file.path.startsWith("_site/")) {
+            console.log("[leafpress] File changed, refreshing panel");
+            this.renderPanel();
+          }
+        });
+
+        this.registerEvent(this.fileChangeListener);
       }
 
+      await this.renderPanel();
+    } catch (err) {
+      console.error("[leafpress] Error in panel onOpen:", err);
+      const container = this.containerEl.children[1];
+      container.empty();
+      container.createEl("p", { text: `Error: ${err}` });
+    }
+  }
+
+  private async renderPanel(): Promise<void> {
+    try {
       const container = this.containerEl.children[1];
       container.empty();
       container.createEl("h2", { text: "leafpress" });
@@ -152,7 +165,7 @@ export class LeafpressPanel extends ItemView {
             await this.waitForServerReady(10000); // Wait up to 10 seconds
           }
         } finally {
-          await this.onOpen();
+          await this.renderPanel();
         }
       });
 
@@ -237,7 +250,8 @@ export class LeafpressPanel extends ItemView {
             new Notice(`✗ Error: ${err}`);
             console.error(err);
           } finally {
-            await this.onOpen();
+            // Refresh the panel after deployment attempt
+            await this.renderPanel();
           }
         });
       }
@@ -492,10 +506,6 @@ export class LeafpressPanel extends ItemView {
 
   async onClose() {
     console.log("[leafpress] Panel closed");
-    // Clear refresh interval
-    if (this.statusRefreshInterval) {
-      clearInterval(this.statusRefreshInterval);
-      this.statusRefreshInterval = null;
-    }
+    // File change listener is automatically unregistered
   }
 }

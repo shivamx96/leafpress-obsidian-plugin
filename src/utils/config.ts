@@ -70,6 +70,9 @@ export async function updateFeatureToggle(
     throw new Error("leafpress.json not found. Initialize your site first.");
   }
 
+  console.log(`[leafpress] Updating feature '${feature}' to ${enabled}`);
   (config as any)[feature] = enabled;
+  console.log(`[leafpress] Config value after update:`, (config as any)[feature]);
   await writeLeafpressConfig(app, config);
+  console.log(`[leafpress] Feature '${feature}' saved to leafpress.json`);
 }
