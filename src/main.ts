@@ -33,7 +33,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-initialize",
       name: "Initialize Site",
       callback: async () => {
-        console.log("[Leafpress] Initialize command triggered");
+        console.log("[leafpress] Initialize command triggered");
         await this.commandHandlers.initialize();
       },
     });
@@ -42,7 +42,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-build",
       name: "Build Site",
       callback: async () => {
-        console.log("[Leafpress] Build command triggered");
+        console.log("[leafpress] Build command triggered");
         await this.commandHandlers.build();
       },
     });
@@ -51,7 +51,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-preview",
       name: "Preview Site",
       callback: async () => {
-        console.log("[Leafpress] Preview command triggered");
+        console.log("[leafpress] Preview command triggered");
         await this.commandHandlers.preview();
       },
     });
@@ -60,7 +60,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-deploy",
       name: "Deploy",
       callback: async () => {
-        console.log("[Leafpress] Deploy command triggered");
+        console.log("[leafpress] Deploy command triggered");
         await this.commandHandlers.deploy();
       },
     });
@@ -69,7 +69,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-settings",
       name: "Open Settings",
       callback: () => {
-        console.log("[Leafpress] Settings command triggered");
+        console.log("[leafpress] Settings command triggered");
         this.openSettings();
       },
     });

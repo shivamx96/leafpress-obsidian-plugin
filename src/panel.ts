@@ -26,7 +26,7 @@ export class LeafpressPanel extends ItemView {
 
   async onOpen() {
     try {
-      console.log("[Leafpress] Panel onOpen called");
+      console.log("[leafpress] Panel onOpen called");
       const container = this.containerEl.children[1];
       container.empty();
       container.createEl("h2", { text: "leafpress" });
@@ -65,12 +65,12 @@ export class LeafpressPanel extends ItemView {
         try {
           if (serverRunning) {
             await this.stopServer();
+            await new Promise(resolve => setTimeout(resolve, 500));
           } else {
             await this.startServer();
+            await this.waitForServerReady(10000); // Wait up to 10 seconds
           }
         } finally {
-          // Wait for server status to actually change, then refresh panel
-          await new Promise(resolve => setTimeout(resolve, 2500));
           await this.onOpen();
         }
       });
@@ -80,16 +80,14 @@ export class LeafpressPanel extends ItemView {
       previewBtn.style.flex = "1";
       previewBtn.style.minWidth = "100px";
       previewBtn.disabled = !serverRunning;
-      if (!serverRunning) {
-        previewBtn.title = "Server must be running to open preview";
-      }
+      previewBtn.title = serverRunning ? "Open preview in browser" : "Server must be running to open preview";
       previewBtn.addEventListener("click", () => {
         spawn("open", ["http://localhost:3000"]);
       });
 
-      console.log("[Leafpress] Panel rendered successfully");
+      console.log("[leafpress] Panel rendered successfully");
     } catch (err) {
-      console.error("[Leafpress] Error rendering panel:", err);
+      console.error("[leafpress] Error rendering panel:", err);
       const container = this.containerEl.children[1];
       container.empty();
       container.createEl("p", { text: `Error: ${err}` });
@@ -143,7 +141,7 @@ export class LeafpressPanel extends ItemView {
       await this.binaryManager.ensureBinary();
       this.binaryManager.execCommand(["serve"]);
     } catch (err) {
-      console.error("[Leafpress] Error starting server:", err);
+      console.error("[leafpress] Error starting server:", err);
     }
   }
 
@@ -151,7 +149,7 @@ export class LeafpressPanel extends ItemView {
     try {
       await this.killPortProcess(3000);
     } catch (err) {
-      console.error("[Leafpress] Error stopping server:", err);
+      console.error("[leafpress] Error stopping server:", err);
     }
   }
 
@@ -163,7 +161,20 @@ export class LeafpressPanel extends ItemView {
     });
   }
 
+  private waitForServerReady(timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const checkInterval = setInterval(async () => {
+        const isReady = await this.isServerRunning();
+        if (isReady || Date.now() - startTime > timeoutMs) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 200);
+    });
+  }
+
   async onClose() {
-    console.log("[Leafpress] Panel closed");
+    console.log("[leafpress] Panel closed");
   }
 }

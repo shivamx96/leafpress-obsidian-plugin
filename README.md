@@ -1,6 +1,6 @@
-# Leafpress Obsidian Plugin
+# leafpress-obsidian plugin
 
-Build and deploy your Obsidian vault as a Leafpress digital garden without touching the CLI.
+Build and deploy your Obsidian vault as a leafpress digital garden without touching the CLI.
 
 ## Development
 

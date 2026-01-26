@@ -38,10 +38,10 @@ export class BinaryManager {
         throw new Error('Could not determine vault path');
       }
 
-      console.log('[Leafpress] Vault path:', this.vaultPath);
+      console.log('[leafpress] Vault path:', this.vaultPath);
       return this.vaultPath;
     } catch (err) {
-      console.error('[Leafpress] Error getting vault path:', err);
+      console.error('[leafpress] Error getting vault path:', err);
       throw new Error('Failed to determine vault path');
     }
   }
@@ -89,7 +89,7 @@ export class BinaryManager {
     // First escape dots, then replace * with .*
     const escaped = pattern.replace(/\./g, '\\.');
     const regex = new RegExp(`^${escaped.replace(/\*/g, '.*')}$`);
-    console.log('[Leafpress] Pattern:', pattern, '-> Regex:', regex, 'Asset:', assetName, 'Match:', regex.test(assetName));
+    console.log('[leafpress] Pattern:', pattern, '-> Regex:', regex, 'Asset:', assetName, 'Match:', regex.test(assetName));
     return regex.test(assetName);
   }
 
@@ -101,9 +101,9 @@ export class BinaryManager {
     try {
       const binaryPath = this.getBinaryPath();
       await fs.access(binaryPath);
-      console.log('[Leafpress] Binary found at:', binaryPath);
+      console.log('[leafpress] Binary found at:', binaryPath);
     } catch {
-      console.log('[Leafpress] Binary not found, downloading...');
+      console.log('[leafpress] Binary not found, downloading...');
       await this.downloadBinary();
     }
   }
@@ -114,11 +114,11 @@ export class BinaryManager {
 
     try {
       // Fetch latest release info using Obsidian's requestUrl (handles CORS)
-      console.log('[Leafpress] Fetching latest release...');
+      console.log('[leafpress] Fetching latest release...');
       const releaseResponse = await requestUrl({
         url: `https://api.github.com/repos/${REPO}/releases/latest`,
         headers: {
-          "User-Agent": "Obsidian-Leafpress-Plugin"
+          "User-Agent": "obsidian-leafpress-plugin"
         }
       });
 
@@ -127,7 +127,7 @@ export class BinaryManager {
       }
 
       const release = JSON.parse(releaseResponse.text) as any;
-      console.log('[Leafpress] Available assets:', release.assets.map((a: any) => a.name));
+      console.log('[leafpress] Available assets:', release.assets.map((a: any) => a.name));
 
       // Find asset matching pattern
       const asset = release.assets.find((a: any) => this.matchAssetName(assetName, a.name));
@@ -142,11 +142,11 @@ export class BinaryManager {
       await fs.mkdir(binDir, { recursive: true });
 
       // Download archive using Obsidian's requestUrl
-      console.log('[Leafpress] Downloading', asset.name, 'from', asset.browser_download_url);
+      console.log('[leafpress] Downloading', asset.name, 'from', asset.browser_download_url);
       const archiveResponse = await requestUrl({
         url: asset.browser_download_url,
         headers: {
-          "User-Agent": "Obsidian-Leafpress-Plugin"
+          "User-Agent": "obsidian-leafpress-plugin"
         }
       });
 
@@ -172,11 +172,11 @@ export class BinaryManager {
         // Ignore cleanup errors
       }
 
-      console.log('[Leafpress] Binary downloaded and extracted successfully');
-      new Notice(`✓ Leafpress CLI downloaded successfully`);
+      console.log('[leafpress] Binary downloaded and extracted successfully');
+      new Notice(`✓ leafpress CLI downloaded successfully`);
     } catch (err) {
-      const message = `Failed to download Leafpress binary: ${err}`;
-      console.error('[Leafpress]', message);
+      const message = `Failed to download leafpress binary: ${err}`;
+      console.error('[leafpress]', message);
       new Notice(`✗ ${message}`);
       throw err;
     }

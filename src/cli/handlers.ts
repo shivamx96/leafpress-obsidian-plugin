@@ -32,9 +32,9 @@ export class CommandHandlers {
 
   async build(): Promise<void> {
     try {
-      console.log("[Leafpress] Build handler started");
+      console.log("[leafpress] Build handler started");
       new Notice("Preparing...");
-      console.log("[Leafpress] Ensuring binary exists...");
+      console.log("[leafpress] Ensuring binary exists...");
       await this.binaryManager.ensureBinary();
       new Notice("Building your site...");
 
@@ -134,7 +134,7 @@ class InitializeModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Initialize Leafpress Site" });
+    contentEl.createEl("h2", { text: "Initialize leafpress Site" });
 
     const form = contentEl.createEl("form");
 
