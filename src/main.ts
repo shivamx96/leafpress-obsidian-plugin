@@ -405,7 +405,7 @@ class LeafpressSettingTab extends PluginSettingTab {
               "fontHeading",
               value || FONT_DEFAULTS.heading
             );
-            new Notice("Theme updated");
+            // Config saved
           })
       );
 
@@ -422,7 +422,7 @@ class LeafpressSettingTab extends PluginSettingTab {
               "fontBody",
               value || FONT_DEFAULTS.body
             );
-            new Notice("Theme updated");
+            // Config saved
           })
       );
 
@@ -439,7 +439,7 @@ class LeafpressSettingTab extends PluginSettingTab {
               "fontMono",
               value || FONT_DEFAULTS.mono
             );
-            new Notice("Theme updated");
+            // Config saved
           })
       );
   }
@@ -455,7 +455,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(accentColor)
           .onChange(async (value) => {
             await updateThemeProperty(this.app, "accent", value);
-            new Notice("Theme updated");
+            // Config saved
           })
       );
   }
@@ -514,7 +514,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           const preset = gradients.find((g) => g.id === selectedMode);
           if (preset) {
             await updateThemeProperty(this.app, `background.${mode}`, preset.value);
-            new Notice("Theme updated");
+            // Config saved
           }
         }
         await this.display();
@@ -528,7 +528,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(parsed.type === "color" ? currentValue : "#ffffff")
           .onChange(async (value) => {
             await updateThemeProperty(this.app, `background.${mode}`, value);
-            new Notice("Theme updated");
+            // Config saved
           });
       });
     }
@@ -548,7 +548,7 @@ class LeafpressSettingTab extends PluginSettingTab {
         dd.setValue(navStyle);
         dd.onChange(async (value) => {
           await updateThemeProperty(this.app, "navStyle", value);
-          new Notice("Theme updated");
+          // Config saved
         });
       });
 
@@ -562,7 +562,7 @@ class LeafpressSettingTab extends PluginSettingTab {
         dd.setValue(navActiveStyle);
         dd.onChange(async (value) => {
           await updateThemeProperty(this.app, "navActiveStyle", value);
-          new Notice("Theme updated");
+          // Config saved
         });
       });
   }
@@ -749,7 +749,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(config?.graph ?? false)
           .onChange(async (value) => {
             await updateFeatureToggle(this.app, "graph", value);
-            new Notice("Feature updated");
+            // Config saved
           })
       );
 
@@ -761,7 +761,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(config?.toc ?? true)
           .onChange(async (value) => {
             await updateFeatureToggle(this.app, "toc", value);
-            new Notice("Feature updated");
+            // Config saved
           })
       );
 
@@ -773,7 +773,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(config?.search ?? true)
           .onChange(async (value) => {
             await updateFeatureToggle(this.app, "search", value);
-            new Notice("Feature updated");
+            // Config saved
           })
       );
 
@@ -785,7 +785,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(config?.wikilinks ?? true)
           .onChange(async (value) => {
             await updateFeatureToggle(this.app, "wikilinks", value);
-            new Notice("Feature updated");
+            // Config saved
           })
       );
 
@@ -797,7 +797,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .setValue(config?.backlinks ?? true)
           .onChange(async (value) => {
             await updateFeatureToggle(this.app, "backlinks", value);
-            new Notice("Feature updated");
+            // Config saved
           })
       );
   }

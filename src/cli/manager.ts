@@ -1,5 +1,5 @@
 import { App, Notice, requestUrl } from "obsidian";
-import { spawn } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -99,12 +99,20 @@ export class BinaryManager {
   }
 
   async ensureBinary(): Promise<void> {
+    const binaryPath = this.getBinaryPath();
+
     if (this.customBinaryPath) {
+      // Validate custom binary path exists
+      try {
+        await fs.access(binaryPath);
+        console.log('[leafpress] Custom binary found at:', binaryPath);
+      } catch {
+        throw new Error(`Custom binary not found at: ${binaryPath}`);
+      }
       return;
     }
 
     try {
-      const binaryPath = this.getBinaryPath();
       await fs.access(binaryPath);
       console.log('[leafpress] Binary found at:', binaryPath);
     } catch {
@@ -413,9 +421,15 @@ export class BinaryManager {
         });
       });
 
-      // Timeout after 5 minutes for deploy, 30s for others
-      setTimeout(() => {
-        child.kill();
+      // Timeout after 5 minutes
+      const timeout = setTimeout(() => {
+        child.kill("SIGTERM");
+        // Give process time to cleanup, then force kill
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill("SIGKILL");
+          }
+        }, 3000);
         resolve({
           success: false,
           stdout,
@@ -423,6 +437,63 @@ export class BinaryManager {
           code: -1,
         });
       }, 5 * 60 * 1000);
+
+      // Clear timeout if process exits normally
+      child.on("exit", () => clearTimeout(timeout));
     });
+  }
+
+  /**
+   * Start a long-running server process. Returns the child process
+   * so caller can manage its lifecycle. Does not timeout.
+   */
+  async startServerProcess(): Promise<{ process: ChildProcess; error?: string }> {
+    try {
+      await this.ensureBinary();
+    } catch (err) {
+      return { process: null as any, error: `Failed to ensure binary: ${err}` };
+    }
+
+    const child = spawn(this.getBinaryPath(), ["serve"], {
+      cwd: this.getVaultPath(),
+      env: process.env,
+      detached: false,
+    });
+
+    // Return early error if spawn fails
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      child.on("error", (err) => {
+        if (!resolved) {
+          resolved = true;
+          resolve({ process: child, error: err.message });
+        }
+      });
+
+      // Give it a moment to fail, then assume it started
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve({ process: child });
+        }
+      }, 500);
+    });
+  }
+
+  /**
+   * Stop a server process gracefully
+   */
+  stopServerProcess(child: ChildProcess): void {
+    if (!child || child.killed) return;
+
+    child.kill("SIGTERM");
+
+    // Force kill after 3 seconds if still running
+    setTimeout(() => {
+      if (!child.killed) {
+        child.kill("SIGKILL");
+      }
+    }, 3000);
   }
 }

@@ -103,17 +103,62 @@ export class CommandHandlers {
   private killPortProcess(port: number): Promise<void> {
     return new Promise((resolve) => {
       const platform = process.platform;
-      let cmd: string;
 
       if (platform === "win32") {
-        cmd = `netstat -ano | findstr :${port} | for /f "tokens=5" %a in ('more') do taskkill /PID %a /F`;
-      } else {
-        cmd = `lsof -ti:${port} | xargs kill -9`;
-      }
+        // Windows: use netstat and taskkill
+        const findProc = spawn("cmd", ["/c", `netstat -ano | findstr :${port}`]);
+        let output = "";
 
-      const proc = spawn("sh", ["-c", cmd]);
-      proc.on("close", () => resolve());
-      proc.on("error", () => resolve()); // Ignore errors if process doesn't exist
+        findProc.stdout?.on("data", (data) => {
+          output += data.toString();
+        });
+
+        findProc.on("close", () => {
+          // Parse PIDs from netstat output
+          const lines = output.split("\n");
+          const pids = new Set<number>();
+          for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(pid) && pid > 0) pids.add(pid);
+          }
+          for (const pid of pids) {
+            try {
+              process.kill(pid, "SIGTERM");
+            } catch (e) {
+              // Process may already be dead
+            }
+          }
+          resolve();
+        });
+
+        findProc.on("error", () => resolve());
+      } else {
+        // Unix: use lsof
+        const findProc = spawn("lsof", ["-ti", `:${port}`]);
+        let pids = "";
+
+        findProc.stdout?.on("data", (data) => {
+          pids += data.toString();
+        });
+
+        findProc.on("close", () => {
+          const pidList = pids.trim().split("\n").filter(Boolean);
+          for (const pidStr of pidList) {
+            const pid = parseInt(pidStr, 10);
+            if (!isNaN(pid)) {
+              try {
+                process.kill(pid, "SIGTERM");
+              } catch (e) {
+                // Process may already be dead
+              }
+            }
+          }
+          resolve();
+        });
+
+        findProc.on("error", () => resolve());
+      }
     });
   }
 

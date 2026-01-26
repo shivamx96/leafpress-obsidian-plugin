@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, Notice, EventRef } from "obsidian";
-import { spawn } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as crypto from "crypto";
 import { BinaryManager } from "./cli/manager";
@@ -12,6 +12,9 @@ export class LeafpressPanel extends ItemView {
   private binaryManager: BinaryManager | null = null;
   private vaultPath: string | null = null;
   private fileChangeListener: EventRef | null = null;
+  private serverProcess: ChildProcess | null = null;
+  private isStartingServer = false;
+  private activeIntervals: NodeJS.Timeout[] = [];
 
   constructor(leaf: WorkspaceLeaf, binaryManager?: BinaryManager) {
     super(leaf);
@@ -327,21 +330,59 @@ export class LeafpressPanel extends ItemView {
   private async startServer(): Promise<void> {
     if (!this.binaryManager) return;
 
-    try {
-      // Kill existing process on port 3000 first
-      await this.killPortProcess(3000);
+    // Prevent race condition from multiple rapid clicks
+    if (this.isStartingServer) {
+      console.log("[leafpress] Server start already in progress");
+      return;
+    }
 
-      // Start server
-      await this.binaryManager.ensureBinary();
-      this.binaryManager.execCommand(["serve"]);
+    this.isStartingServer = true;
+
+    try {
+      // Stop existing server if we have a reference
+      if (this.serverProcess) {
+        this.binaryManager.stopServerProcess(this.serverProcess);
+        this.serverProcess = null;
+        // Brief pause for cleanup
+        await new Promise((r) => setTimeout(r, 500));
+      }
+
+      // Start new server
+      const result = await this.binaryManager.startServerProcess();
+
+      if (result.error) {
+        new Notice(`Failed to start server: ${result.error}`);
+        console.error("[leafpress] Server start error:", result.error);
+        return;
+      }
+
+      this.serverProcess = result.process;
+
+      // Handle unexpected server exit
+      this.serverProcess.on("exit", (code) => {
+        console.log("[leafpress] Server process exited with code:", code);
+        this.serverProcess = null;
+        this.renderPanel();
+      });
+
+      console.log("[leafpress] Server process started");
     } catch (err) {
       console.error("[leafpress] Error starting server:", err);
+      new Notice(`Error starting server: ${err}`);
+    } finally {
+      this.isStartingServer = false;
     }
   }
 
   private async stopServer(): Promise<void> {
     try {
-      await this.killPortProcess(3000);
+      if (this.serverProcess && this.binaryManager) {
+        this.binaryManager.stopServerProcess(this.serverProcess);
+        this.serverProcess = null;
+      } else {
+        // Fallback: kill by port if we lost the process reference
+        await this.killPortProcess(3000);
+      }
     } catch (err) {
       console.error("[leafpress] Error stopping server:", err);
     }
@@ -349,9 +390,39 @@ export class LeafpressPanel extends ItemView {
 
   private killPortProcess(port: number): Promise<void> {
     return new Promise((resolve) => {
-      const proc = spawn("sh", ["-c", `lsof -ti:${port} | xargs kill -9`]);
-      proc.on("close", () => resolve());
-      proc.on("error", () => resolve());
+      // First, find PIDs using the port
+      const findProc = spawn("lsof", ["-ti", `:${port}`]);
+      let pids = "";
+
+      findProc.stdout?.on("data", (data) => {
+        pids += data.toString();
+      });
+
+      findProc.on("close", () => {
+        const pidList = pids.trim().split("\n").filter(Boolean);
+        if (pidList.length === 0) {
+          resolve();
+          return;
+        }
+
+        // Kill each PID individually using process.kill
+        let killed = 0;
+        for (const pidStr of pidList) {
+          const pid = parseInt(pidStr, 10);
+          if (!isNaN(pid)) {
+            try {
+              process.kill(pid, "SIGTERM");
+              killed++;
+            } catch (e) {
+              // Process may already be dead
+            }
+          }
+        }
+        console.log(`[leafpress] Killed ${killed} processes on port ${port}`);
+        resolve();
+      });
+
+      findProc.on("error", () => resolve());
     });
   }
 
@@ -362,9 +433,14 @@ export class LeafpressPanel extends ItemView {
         const isReady = await this.isServerRunning();
         if (isReady || Date.now() - startTime > timeoutMs) {
           clearInterval(checkInterval);
+          // Remove from active intervals
+          const idx = this.activeIntervals.indexOf(checkInterval);
+          if (idx > -1) this.activeIntervals.splice(idx, 1);
           resolve();
         }
       }, 200);
+      // Track interval for cleanup on close
+      this.activeIntervals.push(checkInterval);
     });
   }
 
@@ -633,6 +709,14 @@ export class LeafpressPanel extends ItemView {
 
   async onClose() {
     console.log("[leafpress] Panel closed");
-    // File change listener is automatically unregistered
+
+    // Clear any active intervals
+    for (const interval of this.activeIntervals) {
+      clearInterval(interval);
+    }
+    this.activeIntervals = [];
+
+    // Note: We don't stop the server on panel close since user may want it running
+    // File change listener is automatically unregistered via registerEvent
   }
 }

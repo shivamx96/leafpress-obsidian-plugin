@@ -34,64 +34,85 @@ export async function updateThemeProperty(
   app: App,
   path: string,
   value: any
-): Promise<void> {
-  const config = await readLeafpressConfig(app);
-  if (!config) {
-    throw new Error("leafpress.json not found. Initialize your site first.");
-  }
-
-  // Initialize theme object if it doesn't exist
-  if (!config.theme) {
-    config.theme = {};
-  }
-
-  // Handle nested properties (e.g., 'background.light')
-  const parts = path.split(".");
-  if (parts.length === 1) {
-    config.theme[parts[0] as keyof typeof config.theme] = value;
-  } else if (parts[0] === "background") {
-    if (!config.theme.background) {
-      config.theme.background = { light: "#ffffff", dark: "#1a1a1a" };
+): Promise<boolean> {
+  try {
+    const config = await readLeafpressConfig(app);
+    if (!config) {
+      new Notice("leafpress.json not found. Initialize your site first.");
+      return false;
     }
-    config.theme.background[parts[1] as keyof typeof config.theme.background] =
-      value;
-  }
 
-  await writeLeafpressConfig(app, config);
+    // Initialize theme object if it doesn't exist
+    if (!config.theme) {
+      config.theme = {};
+    }
+
+    // Handle nested properties (e.g., 'background.light')
+    const parts = path.split(".");
+    if (parts.length === 1) {
+      config.theme[parts[0] as keyof typeof config.theme] = value;
+    } else if (parts[0] === "background") {
+      if (!config.theme.background) {
+        config.theme.background = { light: "#ffffff", dark: "#1a1a1a" };
+      }
+      config.theme.background[parts[1] as keyof typeof config.theme.background] =
+        value;
+    }
+
+    await writeLeafpressConfig(app, config);
+    return true;
+  } catch (err) {
+    console.error("[leafpress] Error updating theme property:", err);
+    new Notice("Failed to update theme");
+    return false;
+  }
 }
 
 export async function updateFeatureToggle(
   app: App,
   feature: string,
   enabled: boolean
-): Promise<void> {
-  const config = await readLeafpressConfig(app);
-  if (!config) {
-    throw new Error("leafpress.json not found. Initialize your site first.");
-  }
+): Promise<boolean> {
+  try {
+    const config = await readLeafpressConfig(app);
+    if (!config) {
+      new Notice("leafpress.json not found. Initialize your site first.");
+      return false;
+    }
 
-  console.log(`[leafpress] Updating feature '${feature}' to ${enabled}`);
-  (config as any)[feature] = enabled;
-  console.log(`[leafpress] Config value after update:`, (config as any)[feature]);
-  await writeLeafpressConfig(app, config);
-  console.log(`[leafpress] Feature '${feature}' saved to leafpress.json`);
+    (config as any)[feature] = enabled;
+    await writeLeafpressConfig(app, config);
+    return true;
+  } catch (err) {
+    console.error("[leafpress] Error updating feature toggle:", err);
+    new Notice("Failed to update feature");
+    return false;
+  }
 }
 
 export async function updateSiteProperty(
   app: App,
   property: "title" | "author" | "description" | "baseURL" | "image",
   value: string
-): Promise<void> {
-  const config = await readLeafpressConfig(app);
-  if (!config) {
-    throw new Error("leafpress.json not found. Initialize your site first.");
-  }
+): Promise<boolean> {
+  try {
+    const config = await readLeafpressConfig(app);
+    if (!config) {
+      new Notice("leafpress.json not found. Initialize your site first.");
+      return false;
+    }
 
-  if (value) {
-    config[property] = value;
-  } else {
-    delete config[property];
-  }
+    if (value) {
+      config[property] = value;
+    } else {
+      delete config[property];
+    }
 
-  await writeLeafpressConfig(app, config);
+    await writeLeafpressConfig(app, config);
+    return true;
+  } catch (err) {
+    console.error("[leafpress] Error updating site property:", err);
+    new Notice("Failed to update config");
+    return false;
+  }
 }
