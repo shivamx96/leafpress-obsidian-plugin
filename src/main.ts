@@ -275,7 +275,6 @@ class LeafpressSettingTab extends PluginSettingTab {
       .addButton((btn) =>
         btn
           .setButtonText("Initialize Site")
-          .setClass("leafpress-init-btn")
           .onClick(async () => {
             await this.plugin.commandHandlers.initialize();
             // Reload settings after initialization
@@ -541,16 +540,12 @@ class LeafpressSettingTab extends PluginSettingTab {
 
         // Edit button
         const editBtn = itemContainer.createEl("button", { text: "Edit" });
-        editBtn.style.padding = "4px 8px";
-        editBtn.style.fontSize = "0.85rem";
         editBtn.addEventListener("click", async () => {
           await this.editNavItem(index);
         });
 
         // Delete button
         const deleteBtn = itemContainer.createEl("button", { text: "Delete" });
-        deleteBtn.style.padding = "4px 8px";
-        deleteBtn.style.fontSize = "0.85rem";
         deleteBtn.style.color = "var(--text-error, #cc3333)";
         deleteBtn.addEventListener("click", async () => {
           await this.deleteNavItem(index);
@@ -562,7 +557,6 @@ class LeafpressSettingTab extends PluginSettingTab {
     new Setting(containerEl).addButton((btn) =>
       btn
         .setButtonText("+ Add Navigation Item")
-        .setClass("leafpress-add-nav-btn")
         .onClick(async () => {
           await this.addNavItem();
         })
@@ -673,7 +667,6 @@ class LeafpressSettingTab extends PluginSettingTab {
     new Setting(containerEl).addButton((btn) =>
       btn
         .setButtonText("View Template File")
-        .setClass("leafpress-view-template-btn")
         .onClick(async () => {
           try {
             const templateContent = await this.app.vault.adapter.read(
@@ -766,7 +759,6 @@ class LeafpressSettingTab extends PluginSettingTab {
       .addButton((btn) =>
         btn
           .setButtonText("Configure Deployment")
-          .setClass("leafpress-deploy-config-btn")
           .onClick(async () => {
             new DeploymentSetupModal(this.app, this.currentConfig, async () => {
               await this.display();
@@ -776,7 +768,6 @@ class LeafpressSettingTab extends PluginSettingTab {
       .addButton((btn) =>
         btn
           .setButtonText("Deploy Now")
-          .setClass("leafpress-deploy-btn")
           .onClick(async () => {
             await this.plugin.commandHandlers.deploy();
           })

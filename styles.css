@@ -1,167 +1,186 @@
-/* Leafpress Plugin Styles */
+/* Leafpress Plugin Styles - Obsidian 1.6+ Compatible */
 
+:root {
+  --leafpress-radius: 6px;
+  --leafpress-spacing-xs: 4px;
+  --leafpress-spacing-sm: 8px;
+  --leafpress-spacing-md: 12px;
+  --leafpress-spacing-lg: 16px;
+  --leafpress-spacing-xl: 24px;
+  --leafpress-transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Typography & Utilities */
 .leafpress-divider {
-  margin: 24px 0;
+  margin: var(--leafpress-spacing-xl) 0;
   border: none;
-  border-top: 1px solid var(--divider-color, #ccc);
+  border-top: 1px solid var(--divider-color);
 }
 
 .leafpress-desc {
-  color: var(--text-muted, #999);
-  font-size: 0.875rem;
-  margin: 8px 0 16px 0;
-}
-
-.leafpress-init-banner {
-  background-color: var(--background-secondary, #f5f5f5);
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
-  padding: 16px;
-  margin-bottom: 24px;
-}
-
-.leafpress-init-banner p {
-  margin: 0 0 12px 0;
-  font-size: 0.95rem;
-}
-
-.leafpress-init-btn {
-  background-color: var(--interactive-accent, #7c3aed);
-  color: white;
-}
-
-.leafpress-init-btn:hover {
-  background-color: var(--interactive-accent-hover, #6d28d9);
-}
-
-.leafpress-empty-state {
-  color: var(--text-muted, #999);
-  font-style: italic;
-  margin: 12px 0;
-}
-
-.leafpress-nav-item {
-  transition: background-color 0.2s ease;
-}
-
-.leafpress-nav-item:hover {
-  background-color: var(--background-tertiary, #ececec);
-}
-
-.leafpress-nav-item button {
-  background-color: transparent;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 2px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  padding: 4px 8px;
-  transition: all 0.2s ease;
-}
-
-.leafpress-nav-item button:hover {
-  background-color: var(--interactive-accent, #7c3aed);
-  color: white;
-  border-color: var(--interactive-accent, #7c3aed);
-}
-
-.leafpress-add-nav-btn {
-  margin-top: 12px;
-}
-
-.leafpress-template-info {
-  margin-bottom: 12px;
-}
-
-.leafpress-template-info ul {
-  margin: 8px 0;
-  padding-left: 20px;
-}
-
-.leafpress-template-info li {
-  margin-bottom: 4px;
-  line-height: 1.4;
-}
-
-.leafpress-template-instructions {
-  font-size: 0.9rem;
-  color: var(--text-muted, #999);
-  font-style: italic;
-  margin: 12px 0;
-}
-
-.leafpress-view-template-btn {
-  margin-top: 8px;
-}
-
-.leafpress-deploy-info {
-  margin-bottom: 12px;
+  color: var(--text-faint);
+  font-size: 0.8125rem;
+  margin: var(--leafpress-spacing-sm) 0 var(--leafpress-spacing-lg);
   line-height: 1.5;
 }
 
-.leafpress-deploy-status {
-  margin-bottom: 12px;
+.leafpress-empty-state {
+  color: var(--text-faint);
+  font-style: italic;
+  margin: var(--leafpress-spacing-md) 0;
+  padding: var(--leafpress-spacing-sm) var(--leafpress-spacing-md);
 }
 
-.leafpress-deploy-config-btn {
-  margin-bottom: 8px;
+/* Banners & Info Boxes */
+.leafpress-init-banner,
+.deployment-setup-instructions {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--leafpress-radius);
+  padding: var(--leafpress-spacing-lg);
+  margin-bottom: var(--leafpress-spacing-lg);
 }
 
-.leafpress-deploy-btn {
-  margin-bottom: 8px;
+.leafpress-init-banner p,
+.deployment-setup-instructions strong {
+  margin: 0 0 var(--leafpress-spacing-md) 0;
+  line-height: 1.6;
 }
 
-.leafpress-deploy-docs {
-  margin-top: 12px;
+.deployment-setup-instructions {
+  border-left: 3px solid var(--interactive-accent);
 }
 
+.deployment-setup-instructions ol,
+.deployment-setup-instructions ul {
+  margin: var(--leafpress-spacing-sm) 0;
+  padding-left: 1.5rem;
+}
+
+.deployment-setup-instructions li {
+  margin-bottom: var(--leafpress-spacing-xs);
+  line-height: 1.5;
+}
+
+/* Template & Deploy Info */
+.leafpress-template-info,
+.leafpress-deploy-info {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--leafpress-radius);
+  padding: var(--leafpress-spacing-md);
+  margin-bottom: var(--leafpress-spacing-md);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.leafpress-template-info ul,
+.leafpress-template-info ol {
+  margin: var(--leafpress-spacing-sm) 0;
+  padding-left: 1.5rem;
+}
+
+.leafpress-template-info li {
+  margin-bottom: var(--leafpress-spacing-xs);
+}
+
+.leafpress-template-instructions {
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+  font-style: italic;
+  margin: var(--leafpress-spacing-md) 0;
+  padding: var(--leafpress-spacing-sm);
+}
+
+/* Navigation Items */
+.leafpress-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--leafpress-spacing-sm);
+  padding: var(--leafpress-spacing-sm) var(--leafpress-spacing-md);
+  background-color: var(--background-secondary);
+  border-radius: var(--leafpress-radius);
+  margin-bottom: var(--leafpress-spacing-sm);
+  transition: background-color var(--leafpress-transition);
+}
+
+.leafpress-nav-item:hover {
+  background-color: var(--background-tertiary);
+}
+
+.leafpress-nav-item span {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--text-normal);
+}
+
+/* Pending Files */
+.leafpress-pending-files {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--leafpress-radius);
+  padding: var(--leafpress-spacing-md);
+  margin-bottom: var(--leafpress-spacing-lg);
+}
+
+.leafpress-pending-files strong {
+  display: block;
+  color: var(--text-normal);
+  margin-bottom: var(--leafpress-spacing-sm);
+  font-size: 0.8125rem;
+}
+
+.leafpress-pending-files ul {
+  margin: var(--leafpress-spacing-sm) 0;
+  padding-left: 1.25rem;
+  list-style: none;
+}
+
+.leafpress-pending-files li {
+  margin-bottom: var(--leafpress-spacing-xs);
+  font-size: 0.8125rem;
+  color: var(--text-normal);
+  line-height: 1.4;
+}
+
+/* Deployment Result */
 .deployment-result-section {
-  margin: 12px 0;
+  margin: var(--leafpress-spacing-md) 0;
 }
 
 .deployment-result-section strong {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: var(--leafpress-spacing-sm);
+  color: var(--text-normal);
+  font-size: 0.8125rem;
 }
 
-.deployment-setup-instructions {
-  background-color: #f0f7ff;
-  border: 1px solid var(--interactive-accent, #7c3aed);
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 16px;
-  font-size: 0.9rem;
-  line-height: 1.6;
+.deployment-result-section pre {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--leafpress-radius);
+  padding: var(--leafpress-spacing-md);
+  overflow: auto;
+  max-height: 300px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-normal);
 }
 
-.deployment-setup-instructions strong {
-  display: block;
+/* Deploy Info Display */
+.leafpress-deploy-docs {
+  margin-top: var(--leafpress-spacing-lg);
+  font-size: 0.8125rem;
+  color: var(--text-faint);
 }
 
-.deployment-setup-instructions ol {
-  margin: 8px 0;
-  padding-left: 20px;
+.leafpress-deploy-docs a {
+  color: var(--interactive-accent);
+  text-decoration: none;
+  transition: color var(--leafpress-transition);
 }
 
-.deployment-setup-instructions li {
-  margin-bottom: 4px;
-}
-
-.leafpress-pending-files {
-  background-color: var(--background-secondary, #f5f5f5);
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
-  padding: 8px;
-  margin-bottom: 12px;
-  font-size: 0.85rem;
-}
-
-.leafpress-pending-files ul {
-  margin: 4px 0;
-  padding-left: 20px;
-  list-style-type: none;
-}
-
-.leafpress-pending-files li {
-  margin-bottom: 2px;
-  font-size: 0.85rem;
+.leafpress-deploy-docs a:hover {
+  color: var(--interactive-accent-hover);
+  text-decoration: underline;
 }
