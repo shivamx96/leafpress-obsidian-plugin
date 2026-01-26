@@ -1,186 +1,31 @@
-/* Leafpress Plugin Styles - Obsidian 1.6+ Compatible */
+/* Leafpress Plugin Styles */
 
-:root {
-  --leafpress-radius: 6px;
-  --leafpress-spacing-xs: 4px;
-  --leafpress-spacing-sm: 8px;
-  --leafpress-spacing-md: 12px;
-  --leafpress-spacing-lg: 16px;
-  --leafpress-spacing-xl: 24px;
-  --leafpress-transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Typography & Utilities */
-.leafpress-divider {
-  margin: var(--leafpress-spacing-xl) 0;
-  border: none;
-  border-top: 1px solid var(--divider-color);
-}
-
-.leafpress-desc {
-  color: var(--text-faint);
-  font-size: 0.8125rem;
-  margin: var(--leafpress-spacing-sm) 0 var(--leafpress-spacing-lg);
-  line-height: 1.5;
-}
-
-.leafpress-empty-state {
-  color: var(--text-faint);
-  font-style: italic;
-  margin: var(--leafpress-spacing-md) 0;
-  padding: var(--leafpress-spacing-sm) var(--leafpress-spacing-md);
-}
-
-/* Banners & Info Boxes */
-.leafpress-init-banner,
-.deployment-setup-instructions {
-  background-color: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--leafpress-radius);
-  padding: var(--leafpress-spacing-lg);
-  margin-bottom: var(--leafpress-spacing-lg);
-}
-
-.leafpress-init-banner p,
-.deployment-setup-instructions strong {
-  margin: 0 0 var(--leafpress-spacing-md) 0;
-  line-height: 1.6;
-}
-
-.deployment-setup-instructions {
-  border-left: 3px solid var(--interactive-accent);
-}
-
-.deployment-setup-instructions ol,
-.deployment-setup-instructions ul {
-  margin: var(--leafpress-spacing-sm) 0;
-  padding-left: 1.5rem;
-}
-
-.deployment-setup-instructions li {
-  margin-bottom: var(--leafpress-spacing-xs);
-  line-height: 1.5;
-}
-
-/* Template & Deploy Info */
-.leafpress-template-info,
-.leafpress-deploy-info {
-  background-color: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--leafpress-radius);
-  padding: var(--leafpress-spacing-md);
-  margin-bottom: var(--leafpress-spacing-md);
-  font-size: 0.8125rem;
-  line-height: 1.6;
-}
-
-.leafpress-template-info ul,
-.leafpress-template-info ol {
-  margin: var(--leafpress-spacing-sm) 0;
-  padding-left: 1.5rem;
-}
-
-.leafpress-template-info li {
-  margin-bottom: var(--leafpress-spacing-xs);
-}
-
-.leafpress-template-instructions {
-  font-size: 0.8125rem;
-  color: var(--text-faint);
-  font-style: italic;
-  margin: var(--leafpress-spacing-md) 0;
-  padding: var(--leafpress-spacing-sm);
-}
-
-/* Navigation Items */
-.leafpress-nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--leafpress-spacing-sm);
-  padding: var(--leafpress-spacing-sm) var(--leafpress-spacing-md);
-  background-color: var(--background-secondary);
-  border-radius: var(--leafpress-radius);
-  margin-bottom: var(--leafpress-spacing-sm);
-  transition: background-color var(--leafpress-transition);
-}
-
-.leafpress-nav-item:hover {
-  background-color: var(--background-tertiary);
-}
-
-.leafpress-nav-item span {
-  flex: 1;
-  font-size: 0.8125rem;
-  color: var(--text-normal);
-}
-
-/* Pending Files */
+/* Pending Files - Used in sidebar panel */
 .leafpress-pending-files {
   background-color: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--leafpress-radius);
-  padding: var(--leafpress-spacing-md);
-  margin-bottom: var(--leafpress-spacing-lg);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .leafpress-pending-files strong {
   display: block;
   color: var(--text-normal);
-  margin-bottom: var(--leafpress-spacing-sm);
+  margin-bottom: 8px;
   font-size: 0.8125rem;
 }
 
 .leafpress-pending-files ul {
-  margin: var(--leafpress-spacing-sm) 0;
+  margin: 8px 0;
   padding-left: 1.25rem;
   list-style: none;
 }
 
 .leafpress-pending-files li {
-  margin-bottom: var(--leafpress-spacing-xs);
+  margin-bottom: 4px;
   font-size: 0.8125rem;
   color: var(--text-normal);
   line-height: 1.4;
-}
-
-/* Deployment Result */
-.deployment-result-section {
-  margin: var(--leafpress-spacing-md) 0;
-}
-
-.deployment-result-section strong {
-  display: block;
-  margin-bottom: var(--leafpress-spacing-sm);
-  color: var(--text-normal);
-  font-size: 0.8125rem;
-}
-
-.deployment-result-section pre {
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--leafpress-radius);
-  padding: var(--leafpress-spacing-md);
-  overflow: auto;
-  max-height: 300px;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--text-normal);
-}
-
-/* Deploy Info Display */
-.leafpress-deploy-docs {
-  margin-top: var(--leafpress-spacing-lg);
-  font-size: 0.8125rem;
-  color: var(--text-faint);
-}
-
-.leafpress-deploy-docs a {
-  color: var(--interactive-accent);
-  text-decoration: none;
-  transition: color var(--leafpress-transition);
-}
-
-.leafpress-deploy-docs a:hover {
-  color: var(--interactive-accent-hover);
-  text-decoration: underline;
 }

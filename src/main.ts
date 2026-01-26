@@ -170,12 +170,12 @@ class LeafpressSettingTab extends PluginSettingTab {
     // Load current config
     this.currentConfig = await readLeafpressConfig(this.app);
 
-    this.displayPluginSettings(containerEl);
     this.displaySiteConfiguration(containerEl);
+    this.displayPluginSettings(containerEl);
   }
 
   private displayPluginSettings(containerEl: HTMLElement): void {
-    containerEl.createEl("h2", { text: "Plugin Settings" });
+    new Setting(containerEl).setName("Plugin Settings").setHeading();
 
     new Setting(containerEl)
       .setName("Custom binary path")
@@ -222,35 +222,29 @@ class LeafpressSettingTab extends PluginSettingTab {
               }
 
               if (updateInfo.hasUpdate) {
-                new Notice(
-                  `Update available: ${updateInfo.currentVersion} → ${updateInfo.latestVersion}`
-                );
-
-                // Show update dialog
                 const confirmed = await new Promise<boolean>((resolve) => {
                   const modal = new Modal(this.app);
-                  modal.contentEl.createEl("h2", { text: "leafpress Update Available" });
+                  modal.contentEl.createEl("h3", { text: "Update Available" });
                   modal.contentEl.createEl("p", {
-                    text: `A new version is available: ${updateInfo.currentVersion} → ${updateInfo.latestVersion}`,
+                    text: `${updateInfo.currentVersion} → ${updateInfo.latestVersion}`,
                   });
 
-                  const buttonContainer = modal.contentEl.createDiv();
-                  buttonContainer.style.display = "flex";
-                  buttonContainer.style.gap = "8px";
-                  buttonContainer.style.justifyContent = "flex-end";
-                  buttonContainer.style.marginTop = "16px";
-
-                  const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" });
-                  cancelBtn.addEventListener("click", () => {
-                    resolve(false);
-                    modal.close();
-                  });
-
-                  const updateBtn = buttonContainer.createEl("button", { text: "Update Now" });
-                  updateBtn.addEventListener("click", () => {
-                    resolve(true);
-                    modal.close();
-                  });
+                  new Setting(modal.contentEl)
+                    .addButton((btn) =>
+                      btn.setButtonText("Cancel").onClick(() => {
+                        resolve(false);
+                        modal.close();
+                      })
+                    )
+                    .addButton((btn) =>
+                      btn
+                        .setButtonText("Update")
+                        .setCta()
+                        .onClick(() => {
+                          resolve(true);
+                          modal.close();
+                        })
+                    );
 
                   modal.open();
                 });
@@ -271,83 +265,48 @@ class LeafpressSettingTab extends PluginSettingTab {
             }
           })
       );
-
-    containerEl.createEl("hr", { cls: "leafpress-divider" });
   }
 
   private displaySiteConfiguration(containerEl: HTMLElement): void {
-    containerEl.createEl("h2", { text: "Site Configuration" });
-    containerEl.createEl("p", {
-      text: "Configure your site's appearance and features. Changes are saved directly to leafpress.json.",
-      cls: "leafpress-desc",
-    });
-
     if (!this.currentConfig) {
       this.displayInitializePrompt(containerEl);
       return;
     }
 
     // Theme Configuration
-    containerEl.createEl("h3", { text: "Theme Configuration" });
+    new Setting(containerEl).setName("Theme").setHeading();
     this.displayFontSettings(containerEl);
     this.displayColorSettings(containerEl);
     this.displayBackgroundSettings(containerEl);
     this.displayNavStyleSettings(containerEl);
 
-    containerEl.createEl("hr", { cls: "leafpress-divider" });
-
     // Navigation Items
-    containerEl.createEl("h3", { text: "Navigation Menu" });
-    containerEl.createEl("p", {
-      text: "Configure navigation menu items for your site.",
-      cls: "leafpress-desc",
-    });
+    new Setting(containerEl).setName("Navigation").setHeading();
     this.displayNavItems(containerEl);
 
-    containerEl.createEl("hr", { cls: "leafpress-divider" });
-
-    // Note Template
-    containerEl.createEl("h3", { text: "Note Template" });
-    containerEl.createEl("p", {
-      text: "Use the note template when creating new notes. Available in templates/note.md",
-      cls: "leafpress-desc",
-    });
-    this.displayNoteTemplate(containerEl);
-
-    containerEl.createEl("hr", { cls: "leafpress-divider" });
-
     // Features
-    containerEl.createEl("h3", { text: "Features" });
-    containerEl.createEl("p", {
-      text: "Enable or disable site features.",
-      cls: "leafpress-desc",
-    });
+    new Setting(containerEl).setName("Features").setHeading();
     this.displayFeatureToggles(containerEl);
 
-    containerEl.createEl("hr", { cls: "leafpress-divider" });
-
     // Deployment
-    containerEl.createEl("h3", { text: "Deployment" });
-    containerEl.createEl("p", {
-      text: "Configure deployment settings for your site.",
-      cls: "leafpress-desc",
-    });
+    new Setting(containerEl).setName("Deployment").setHeading();
     this.displayDeploymentSettings(containerEl);
+
+    // Note Template
+    new Setting(containerEl).setName("Note Template").setHeading();
+    this.displayNoteTemplate(containerEl);
   }
 
   private displayInitializePrompt(containerEl: HTMLElement): void {
-    const bannerEl = containerEl.createDiv("leafpress-init-banner");
-    bannerEl.createEl("p", {
-      text: "⚠️ Initialize your site first to configure theme and features.",
-    });
-
-    new Setting(bannerEl)
+    new Setting(containerEl)
+      .setName("Initialize site")
+      .setDesc("Create leafpress.json to configure theme and features")
       .addButton((btn) =>
         btn
-          .setButtonText("Initialize Site")
+          .setButtonText("Initialize")
+          .setCta()
           .onClick(async () => {
             await this.plugin.commandHandlers.initialize();
-            // Reload settings after initialization
             setTimeout(() => {
               this.display();
             }, 1000);
@@ -460,92 +419,48 @@ class LeafpressSettingTab extends PluginSettingTab {
     currentValue: string,
     gradients: typeof LIGHT_GRADIENTS
   ): void {
-    const bgContainer = containerEl.createDiv();
     const parsed = parseBackgroundValue(currentValue);
     const presetId = getGradientPresetId(currentValue);
 
-    let currentMode =
+    const currentSelection =
       parsed.type === "color"
         ? "solid"
         : presetId
           ? presetId
           : "custom";
 
-    let colorPickerSetting: Setting | null = null;
-    let customGradientSetting: Setting | null = null;
+    const setting = new Setting(containerEl).setName(name);
 
-    const updateVisibility = (mode: string) => {
-      if (colorPickerSetting) {
-        colorPickerSetting.settingEl.style.display =
-          mode === "solid" ? "" : "none";
-      }
-      if (customGradientSetting) {
-        customGradientSetting.settingEl.style.display =
-          mode === "custom" ? "" : "none";
-      }
-    };
-
-    // Dropdown for mode selection
-    new Setting(bgContainer)
-      .setName(name)
-      .setDesc("Background color or gradient for theme")
-      .addDropdown((dd) => {
-        dd.addOption("solid", "Solid Color");
-        gradients.forEach((gradient) => {
-          dd.addOption(gradient.id, gradient.label);
-        });
-        dd.addOption("custom", "Custom Gradient");
-
-        dd.setValue(currentMode);
-
-        dd.onChange(async (selectedMode) => {
-          currentMode = selectedMode;
-          updateVisibility(selectedMode);
-
-          if (selectedMode === "solid") {
-            // Keep current color, will be updated by color picker
-          } else if (selectedMode === "custom") {
-            // Keep for user to edit
-          } else {
-            // Preset gradient
-            const preset = gradients.find((g) => g.id === selectedMode);
-            if (preset) {
-              await updateThemeProperty(
-                this.app,
-                `background.${mode}`,
-                preset.value
-              );
-              new Notice("Theme updated");
-            }
-          }
-        });
+    setting.addDropdown((dd) => {
+      dd.addOption("solid", "Solid Color");
+      gradients.forEach((gradient) => {
+        dd.addOption(gradient.id, gradient.label);
       });
-
-    // Color picker (shown when solid)
-    colorPickerSetting = new Setting(bgContainer).addColorPicker((color) =>
-      color
-        .setValue(parsed.type === "color" ? currentValue : "#ffffff")
-        .onChange(async (value) => {
-          await updateThemeProperty(this.app, `background.${mode}`, value);
-          new Notice("Theme updated");
-        })
-    );
-
-    // Custom gradient input (shown when custom)
-    customGradientSetting = new Setting(bgContainer).addText((text) =>
-      text
-        .setPlaceholder("linear-gradient(180deg, #fff 0%, #f5f5f5 100%)")
-        .setValue(parsed.type === "custom" ? currentValue : "")
-        .onChange(async (value) => {
-          if (value) {
-            await updateThemeProperty(this.app, `background.${mode}`, value);
+      dd.addOption("custom", "Custom CSS");
+      dd.setValue(currentSelection);
+      dd.onChange(async (selectedMode) => {
+        if (selectedMode !== "solid" && selectedMode !== "custom") {
+          const preset = gradients.find((g) => g.id === selectedMode);
+          if (preset) {
+            await updateThemeProperty(this.app, `background.${mode}`, preset.value);
             new Notice("Theme updated");
           }
-        })
-    );
+        }
+        await this.display();
+      });
+    });
 
-    // Initial visibility
-    updateVisibility(currentMode);
+    // Show color picker only for solid color mode
+    if (currentSelection === "solid") {
+      setting.addColorPicker((color) => {
+        color
+          .setValue(parsed.type === "color" ? currentValue : "#ffffff")
+          .onChange(async (value) => {
+            await updateThemeProperty(this.app, `background.${mode}`, value);
+            new Notice("Theme updated");
+          });
+      });
+    }
   }
 
   private displayNavStyleSettings(containerEl: HTMLElement): void {
@@ -584,53 +499,40 @@ class LeafpressSettingTab extends PluginSettingTab {
   private displayNavItems(containerEl: HTMLElement): void {
     const navItems = this.currentConfig?.nav || [];
 
-    // Display current nav items
+    // Display current nav items using Setting component
     if (navItems.length === 0) {
-      containerEl.createEl("p", {
-        text: "No navigation items configured.",
-        cls: "leafpress-empty-state",
-      });
+      new Setting(containerEl)
+        .setName("No navigation items")
+        .setDesc("Add items to create your site navigation menu");
     } else {
       navItems.forEach((item, index) => {
-        const itemContainer = containerEl.createDiv("leafpress-nav-item");
-        itemContainer.style.display = "flex";
-        itemContainer.style.alignItems = "center";
-        itemContainer.style.gap = "12px";
-        itemContainer.style.marginBottom = "12px";
-        itemContainer.style.padding = "8px";
-        itemContainer.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-        itemContainer.style.borderRadius = "4px";
-
-        // Item display
-        const labelEl = itemContainer.createEl("span", {
-          text: `${item.label} → ${item.path}`,
-        });
-        labelEl.style.flex = "1";
-        labelEl.style.fontSize = "0.9rem";
-
-        // Edit button
-        const editBtn = itemContainer.createEl("button", { text: "Edit" });
-        editBtn.addEventListener("click", async () => {
-          await this.editNavItem(index);
-        });
-
-        // Delete button
-        const deleteBtn = itemContainer.createEl("button", { text: "Delete" });
-        deleteBtn.style.color = "var(--text-error, #cc3333)";
-        deleteBtn.addEventListener("click", async () => {
-          await this.deleteNavItem(index);
-        });
+        new Setting(containerEl)
+          .setName(item.label)
+          .setDesc(item.path)
+          .addButton((btn) =>
+            btn.setButtonText("Edit").onClick(async () => {
+              await this.editNavItem(index);
+            })
+          )
+          .addButton((btn) =>
+            btn
+              .setButtonText("Delete")
+              .setWarning()
+              .onClick(async () => {
+                await this.deleteNavItem(index);
+              })
+          );
       });
     }
 
     // Add new item button
-    new Setting(containerEl).addButton((btn) =>
-      btn
-        .setButtonText("+ Add Navigation Item")
-        .onClick(async () => {
+    new Setting(containerEl)
+      .setName("Add navigation item")
+      .addButton((btn) =>
+        btn.setButtonText("Add").onClick(async () => {
           await this.addNavItem();
         })
-    );
+      );
   }
 
   private async addNavItem(): Promise<void> {
@@ -698,46 +600,11 @@ class LeafpressSettingTab extends PluginSettingTab {
   }
 
   private displayNoteTemplate(containerEl: HTMLElement): void {
-    const templateInfo = containerEl.createDiv("leafpress-template-info");
-    templateInfo.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-    templateInfo.style.border = "1px solid var(--border-color, #ddd)";
-    templateInfo.style.borderRadius = "4px";
-    templateInfo.style.padding = "12px";
-    templateInfo.style.marginBottom = "12px";
-    templateInfo.style.fontSize = "0.9rem";
-
-    const fields = [
-      { name: "title", desc: "Note title" },
-      { name: "tags", desc: "Array of tags (e.g., ['markdown', 'note'])" },
-      { name: "createdAt", desc: "Creation timestamp (ISO format)" },
-      { name: "updatedAt", desc: "Last update timestamp (ISO format)" },
-      { name: "growth", desc: 'Growth stage: seedling, budding, evergreen' },
-      { name: "draft", desc: "Whether the note is in draft state" },
-    ];
-
-    const fieldsList = templateInfo.createEl("ul");
-    fieldsList.style.margin = "8px 0";
-    fieldsList.style.paddingLeft = "20px";
-
-    fields.forEach((field) => {
-      const li = fieldsList.createEl("li");
-      li.style.marginBottom = "4px";
-      const strong = li.createEl("strong", { text: field.name });
-      li.appendChild(document.createTextNode(` — ${field.desc}`));
-    });
-
-    const instructions = containerEl.createEl("p", {
-      text: "To use this template in Obsidian: Open the template plugin settings and point to templates/note.md. Then use 'Insert template' when creating new notes in the notes/ folder.",
-      cls: "leafpress-template-instructions",
-    });
-    instructions.style.fontSize = "0.9rem";
-    instructions.style.color = "var(--text-muted, #999)";
-    instructions.style.fontStyle = "italic";
-
-    new Setting(containerEl).addButton((btn) =>
-      btn
-        .setButtonText("View Template File")
-        .onClick(async () => {
+    new Setting(containerEl)
+      .setName("View template")
+      .setDesc("Frontmatter fields: title, tags, createdAt, updatedAt, growth, draft")
+      .addButton((btn) =>
+        btn.setButtonText("View").onClick(async () => {
           try {
             const templateContent = await this.app.vault.adapter.read(
               "templates/note.md"
@@ -748,18 +615,18 @@ class LeafpressSettingTab extends PluginSettingTab {
             console.error(err);
           }
         })
-    );
+      );
   }
 
   private displayDeploymentSettings(containerEl: HTMLElement): void {
     const config = this.currentConfig;
     const deployConfig = config?.deploy;
     const provider = deployConfig?.provider || "github-pages";
+    const isConfigured = deployConfig?.settings && Object.keys(deployConfig.settings).length > 0;
 
-    // Deployment provider selection
     new Setting(containerEl)
-      .setName("Deployment Provider")
-      .setDesc("Choose where to deploy your site")
+      .setName("Provider")
+      .setDesc(isConfigured ? "Configured" : "Not configured")
       .addDropdown((dd) => {
         dd.addOption("github-pages", "GitHub Pages");
         dd.addOption("vercel", "Vercel");
@@ -779,95 +646,25 @@ class LeafpressSettingTab extends PluginSettingTab {
         });
       });
 
-    // Show provider info
-    const infoEl = containerEl.createDiv("leafpress-deploy-info");
-    infoEl.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-    infoEl.style.border = "1px solid var(--border-color, #ddd)";
-    infoEl.style.borderRadius = "4px";
-    infoEl.style.padding = "12px";
-    infoEl.style.marginBottom = "12px";
-    infoEl.style.fontSize = "0.9rem";
-
-    const providerInfo: Record<string, { title: string; desc: string }> = {
-      "github-pages": {
-        title: "GitHub Pages",
-        desc: "Deploy to GitHub Pages using OAuth authentication. Supports both user/org sites and project repos.",
-      },
-      vercel: {
-        title: "Vercel",
-        desc: "Deploy to Vercel with automatic SSL and edge network. Requires Vercel token.",
-      },
-      netlify: {
-        title: "Netlify",
-        desc: "Deploy to Netlify with CDN and smart uploads. Requires Netlify Personal Access Token.",
-      },
-    };
-
-    const info = providerInfo[provider];
-    if (info) {
-      infoEl.createEl("strong", { text: info.title });
-      infoEl.appendChild(document.createTextNode(` — ${info.desc}`));
-    }
-
-    // Configuration status
-    const statusEl = containerEl.createDiv("leafpress-deploy-status");
-    statusEl.style.display = "flex";
-    statusEl.style.alignItems = "center";
-    statusEl.style.gap = "8px";
-    statusEl.style.marginBottom = "12px";
-
-    if (deployConfig?.settings && Object.keys(deployConfig.settings).length > 0) {
-      statusEl.createEl("span", { text: "✓ Configured" });
-      statusEl.style.color = "var(--text-success, #00aa00)";
-    } else {
-      statusEl.createEl("span", { text: "⚪ Not configured" });
-      statusEl.style.color = "var(--text-muted, #999)";
-    }
-
-    // Reconfigure button
     new Setting(containerEl)
+      .setName("Configure")
+      .setDesc("Run 'leafpress deploy' in terminal for initial setup")
       .addButton((btn) =>
-        btn
-          .setButtonText("Configure Deployment")
-          .onClick(async () => {
-            new DeploymentSetupModal(this.app, this.currentConfig, async () => {
-              await this.display();
-            }).open();
-          })
-      )
-      .addButton((btn) =>
-        btn
-          .setButtonText("Deploy Now")
-          .onClick(async () => {
-            await this.plugin.commandHandlers.deploy();
-          })
+        btn.setButtonText("Setup Guide").onClick(async () => {
+          new DeploymentSetupModal(this.app, this.currentConfig, async () => {
+            await this.display();
+          }).open();
+        })
       );
 
-    // Provider-specific info
-    const docsLink = containerEl.createDiv("leafpress-deploy-docs");
-    docsLink.style.fontSize = "0.85rem";
-    docsLink.style.color = "var(--text-muted, #999)";
-    docsLink.style.marginTop = "12px";
-
-    const docsByProvider: Record<string, string> = {
-      "github-pages":
-        "https://github.com/shivamx96/leafpress/wiki/Deploy-to-GitHub-Pages",
-      vercel: "https://github.com/shivamx96/leafpress/wiki/Deploy-to-Vercel",
-      netlify:
-        "https://github.com/shivamx96/leafpress/wiki/Deploy-to-Netlify",
-    };
-
-    if (docsByProvider[provider]) {
-      const linkEl = docsLink.createEl("a", {
-        text: "View deployment guide →",
-        href: "#",
-      });
-      linkEl.style.color = "var(--text-link, #7c3aed)";
-      linkEl.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.open(docsByProvider[provider]);
-      });
-    }
+    new Setting(containerEl)
+      .setName("Deploy now")
+      .setDesc("Build and deploy your site")
+      .addButton((btn) =>
+        btn.setButtonText("Deploy").setCta().onClick(async () => {
+          await this.plugin.commandHandlers.deploy();
+        })
+      );
   }
 
   private displayFeatureToggles(containerEl: HTMLElement): void {
@@ -959,50 +756,40 @@ class PromptInputModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: this.title });
+    contentEl.createEl("h3", { text: this.title });
 
-    const inputEl = contentEl.createEl("input", {
-      attr: {
-        type: "text",
-        placeholder: this.placeholder,
-        value: this.defaultValue,
-      },
-    });
-    inputEl.style.width = "100%";
-    inputEl.style.padding = "8px";
-    inputEl.style.marginBottom = "16px";
-    inputEl.style.boxSizing = "border-box";
-
-    inputEl.addEventListener("input", (e) => {
-      this.inputValue = (e.target as HTMLInputElement).value;
-    });
-
-    inputEl.focus();
-
-    const buttonContainer = contentEl.createEl("div");
-    buttonContainer.style.display = "flex";
-    buttonContainer.style.gap = "10px";
-    buttonContainer.style.justifyContent = "flex-end";
-
-    const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" });
-    cancelBtn.addEventListener("click", () => {
-      this.onSubmit(null);
-      this.close();
+    new Setting(contentEl).addText((text) => {
+      text
+        .setPlaceholder(this.placeholder)
+        .setValue(this.defaultValue)
+        .onChange((value) => {
+          this.inputValue = value;
+        });
+      text.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          this.onSubmit(this.inputValue.trim() || null);
+          this.close();
+        }
+      });
+      setTimeout(() => text.inputEl.focus(), 10);
     });
 
-    const submitBtn = buttonContainer.createEl("button", { text: "Save" });
-    submitBtn.addEventListener("click", () => {
-      this.onSubmit(this.inputValue.trim() || null);
-      this.close();
-    });
-
-    // Allow Enter to submit
-    inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        this.onSubmit(this.inputValue.trim() || null);
-        this.close();
-      }
-    });
+    new Setting(contentEl)
+      .addButton((btn) =>
+        btn.setButtonText("Cancel").onClick(() => {
+          this.onSubmit(null);
+          this.close();
+        })
+      )
+      .addButton((btn) =>
+        btn
+          .setButtonText("Save")
+          .setCta()
+          .onClick(() => {
+            this.onSubmit(this.inputValue.trim() || null);
+            this.close();
+          })
+      );
   }
 }
 
@@ -1016,109 +803,44 @@ class TemplatePreviewModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Note Template" });
-
+    contentEl.createEl("h3", { text: "Note Template" });
     const preEl = contentEl.createEl("pre");
-    preEl.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-    preEl.style.padding = "12px";
-    preEl.style.borderRadius = "4px";
-    preEl.style.overflow = "auto";
-    preEl.style.maxHeight = "400px";
-    preEl.style.fontSize = "0.85rem";
-    preEl.style.fontFamily = "monospace";
     preEl.textContent = this.content;
 
-    const closeBtn = contentEl.createEl("button", { text: "Close" });
-    closeBtn.style.marginTop = "16px";
-    closeBtn.addEventListener("click", () => this.close());
+    new Setting(contentEl).addButton((btn) =>
+      btn.setButtonText("Close").onClick(() => this.close())
+    );
   }
 }
 
 class DeploymentSetupModal extends Modal {
-  private config: LeafpressConfig | null;
   private onComplete: () => void;
-  private provider: "github-pages" | "vercel" | "netlify";
 
   constructor(
     app: App,
-    config: LeafpressConfig | null,
+    _config: LeafpressConfig | null,
     onComplete: () => void
   ) {
     super(app);
-    this.config = config;
     this.onComplete = onComplete;
-    this.provider = config?.deploy?.provider || "github-pages";
   }
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Setup Deployment" });
-
-    const infoBox = contentEl.createEl("div", {
-      cls: "deployment-setup-instructions",
+    contentEl.createEl("h3", { text: "Deployment Setup" });
+    contentEl.createEl("p", {
+      text: "Initial setup requires running a command in your terminal:",
     });
-    infoBox.style.backgroundColor = "#f0f7ff";
-    infoBox.style.border = "1px solid #7c3aed";
-    infoBox.style.borderRadius = "4px";
-    infoBox.style.padding = "12px";
-    infoBox.style.marginBottom = "16px";
-    infoBox.style.lineHeight = "1.6";
-
-    infoBox.createEl("strong", {
-      text: "Initial setup requires interactive terminal",
-    });
-    const desc = infoBox.createEl("p");
-    desc.style.margin = "8px 0 0 0";
-    desc.style.fontSize = "0.9rem";
-    desc.textContent =
-      "Run the following command in your vault directory to set up deployment:";
-
-    // Command
-    const cmdBox = contentEl.createEl("div");
-    cmdBox.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-    cmdBox.style.border = "1px solid var(--border-color, #ddd)";
-    cmdBox.style.borderRadius = "4px";
-    cmdBox.style.padding = "12px";
-    cmdBox.style.marginBottom = "16px";
-    cmdBox.style.fontFamily = "monospace";
-    cmdBox.style.overflowX = "auto";
-
-    const cmd = cmdBox.createEl("code");
-    cmd.textContent = "leafpress deploy";
-    cmd.style.fontSize = "0.9rem";
-
-    // Steps
-    const stepsEl = contentEl.createEl("div");
-    stepsEl.createEl("strong", { text: "Steps:" });
-    const stepsList = stepsEl.createEl("ol");
-    stepsList.style.margin = "8px 0";
-    stepsList.style.paddingLeft = "20px";
-
-    const steps = [
-      "Open Terminal in your vault directory",
-      "Run: leafpress deploy",
-      "Follow the browser or token-based authentication",
-      "Configuration will be saved to leafpress.json",
-      "Return here and click Deploy Now",
-    ];
-
-    steps.forEach((step) => {
-      const li = stepsList.createEl("li");
-      li.textContent = step;
-      li.style.marginBottom = "4px";
+    contentEl.createEl("code", { text: "leafpress deploy" });
+    contentEl.createEl("p", {
+      text: "This will guide you through authentication and save your configuration.",
     });
 
-    // Buttons
-    const buttonContainer = contentEl.createEl("div");
-    buttonContainer.style.display = "flex";
-    buttonContainer.style.gap = "10px";
-    buttonContainer.style.justifyContent = "flex-end";
-    buttonContainer.style.marginTop = "20px";
-
-    const closeBtn = buttonContainer.createEl("button", { text: "Close" });
-    closeBtn.addEventListener("click", () => {
-      this.close();
-      this.onComplete();
-    });
+    new Setting(contentEl).addButton((btn) =>
+      btn.setButtonText("Close").onClick(() => {
+        this.close();
+        this.onComplete();
+      })
+    );
   }
 }
