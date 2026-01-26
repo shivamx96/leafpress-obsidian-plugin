@@ -340,25 +340,30 @@ export class LeafpressPanel extends ItemView {
     pendingFiles: Array<{ status: string; file: string }>;
   } | null> {
     try {
-      if (!this.binaryManager) return null;
+      const vaultPath = this.getVaultPath();
+      const stateFilePath = ".leafpress-deploy-state.json";
 
-      await this.binaryManager.ensureBinary();
-      const result = await this.binaryManager.execCommand(["status"]);
-
-      if (!result.success) {
-        console.log("[leafpress] Status command failed:", result.stderr);
+      // Read deployment state file
+      let stateContent: string;
+      try {
+        stateContent = await this.app.vault.adapter.read(stateFilePath);
+      } catch (err) {
+        console.log("[leafpress] Deployment state file not found:", err);
         return null;
       }
 
-      // Parse JSON output
-      const output = result.stdout.trim();
-      console.log("[leafpress] Raw status output:", output);
+      let deployState: any;
+      try {
+        deployState = JSON.parse(stateContent);
+      } catch (parseErr) {
+        console.error("[leafpress] Failed to parse deployment state JSON:", parseErr);
+        return null;
+      }
 
-      const data = JSON.parse(output);
-      const lastDeploy = data.lastDeploy;
+      const lastDeploy = deployState.lastDeploy;
 
       if (!lastDeploy) {
-        console.log("[leafpress] No lastDeploy found");
+        console.log("[leafpress] No lastDeploy found in deployment state");
         return null;
       }
 
@@ -382,7 +387,6 @@ export class LeafpressPanel extends ItemView {
 
       // Get current _site files and compare with lastDeploy.filesDeployed
       const pendingFiles: Array<{ status: string; file: string }> = [];
-      const vaultPath = this.getVaultPath();
       const siteDir = path.join(vaultPath, "_site");
 
       try {
@@ -416,7 +420,7 @@ export class LeafpressPanel extends ItemView {
         // Fallback: assume there might be pending files
       }
 
-      console.log("[leafpress] Parsed status:", {
+      console.log("[leafpress] Parsed deployment status:", {
         pendingCount: pendingFiles.length,
         lastDeploy: lastDeployStr,
         url: lastDeploy.url,
@@ -437,29 +441,26 @@ export class LeafpressPanel extends ItemView {
 
   private async getAllFilesInDir(dir: string): Promise<string[]> {
     const files: string[] = [];
-    const vaultPath = this.getVaultPath();
 
     try {
       const adapter = this.app.vault.adapter as any;
-      const walkDir = async (currentDir: string, basePath: string = "") => {
+      const baseLength = dir.length + (dir.endsWith("/") ? 0 : 1);
+
+      const walkDir = async (currentDir: string) => {
         try {
           const contents = await adapter.list(currentDir);
 
           if (contents.files) {
             for (const file of contents.files) {
-              const relativePath = basePath
-                ? `${basePath}/${path.basename(file)}`
-                : `/${path.basename(file)}`;
-              files.push(relativePath);
+              // Extract path relative to dir (e.g., _site/index.html -> /index.html)
+              const rel = file.substring(baseLength);
+              files.push(`/${rel}`);
             }
           }
 
           if (contents.folders) {
             for (const folder of contents.folders) {
-              const relativePath = basePath
-                ? `${basePath}/${path.basename(folder)}`
-                : `/${path.basename(folder)}`;
-              await walkDir(folder, relativePath);
+              await walkDir(folder);
             }
           }
         } catch (err) {
