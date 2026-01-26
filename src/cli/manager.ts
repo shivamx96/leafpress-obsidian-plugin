@@ -227,17 +227,38 @@ export class BinaryManager {
   private extractZip(archivePath: string, binDir: string, executable: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const { spawn } = require('child_process');
-      const unzip = spawn('unzip', ['-o', archivePath, '-d', binDir]);
 
-      unzip.on('close', (code: number) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`unzip extraction failed with code ${code}`));
-        }
-      });
+      if (process.platform === "win32") {
+        // Windows: use PowerShell's Expand-Archive
+        const ps = spawn('powershell', [
+          '-NoProfile',
+          '-Command',
+          `Expand-Archive -Path "${archivePath}" -DestinationPath "${binDir}" -Force`
+        ]);
 
-      unzip.on('error', reject);
+        ps.on('close', (code: number) => {
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`PowerShell extraction failed with code ${code}`));
+          }
+        });
+
+        ps.on('error', reject);
+      } else {
+        // Unix: use unzip
+        const unzip = spawn('unzip', ['-o', archivePath, '-d', binDir]);
+
+        unzip.on('close', (code: number) => {
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`unzip extraction failed with code ${code}`));
+          }
+        });
+
+        unzip.on('error', reject);
+      }
     });
   }
 
