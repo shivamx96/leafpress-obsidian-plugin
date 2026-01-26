@@ -12,7 +12,7 @@ Turn your Obsidian vault into a beautiful digital garden. Build, preview, and de
 
 ## Sample garden at [leafpress.in](https://leafpress.in)
 
-![leafpress Panel](./assets/sample_garden.png)
+![leafpress sample](./assets/sample_garden.png)
 
 ## Features
 
