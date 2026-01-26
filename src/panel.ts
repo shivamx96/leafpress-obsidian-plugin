@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf, Notice, EventRef } from "obsidian";
 import { spawn } from "child_process";
 import * as path from "path";
+import * as crypto from "crypto";
 import { BinaryManager } from "./cli/manager";
 import { readLeafpressConfig } from "./utils/config";
 import { LeafpressConfig } from "./cli/types";
@@ -570,7 +571,7 @@ export class LeafpressPanel extends ItemView {
 
       try {
         const content = await this.app.vault.cachedRead(file);
-        const hash = this.simpleHash(content);
+        const hash = this.sha1Hash(content);
         files[`/${filePath}`] = hash;
       } catch (err) {
         console.log(`[leafpress] Error reading file ${filePath}:`, err);
@@ -580,7 +581,7 @@ export class LeafpressPanel extends ItemView {
     // Also include leafpress.json for tracking config changes
     try {
       const configContent = await this.app.vault.adapter.read("leafpress.json");
-      files["/leafpress.json"] = this.simpleHash(configContent);
+      files["/leafpress.json"] = this.sha1Hash(configContent);
     } catch (err) {
       // Config might not exist
     }
@@ -588,15 +589,9 @@ export class LeafpressPanel extends ItemView {
     return files;
   }
 
-  private simpleHash(content: string): string {
-    // Simple hash for comparison - not cryptographic, just for detecting changes
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return Math.abs(hash).toString(16).padStart(40, "0");
+  private sha1Hash(content: string): string {
+    // Use SHA1 to match the backend (leafpress CLI)
+    return crypto.createHash("sha1").update(content).digest("hex");
   }
 
   private async getAllFilesInDir(dir: string): Promise<string[]> {
