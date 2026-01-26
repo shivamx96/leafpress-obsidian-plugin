@@ -118,13 +118,29 @@ export class LeafpressPanel extends ItemView {
       const vaultAdapter = (this.app.vault.adapter as any);
       const sitePath = "_site";
 
-      // Try to read _site directory
-      const files = await vaultAdapter.list(sitePath);
-      if (files && files.files) {
-        // Count HTML files (excluding index.html at root)
-        return files.files.filter((f: string) => f.endsWith(".html")).length;
-      }
-      return 0;
+      // Recursively count all HTML files in _site directory
+      const countHtmlFiles = async (dir: string): Promise<number> => {
+        try {
+          const contents = await vaultAdapter.list(dir);
+          let count = 0;
+
+          if (contents.files) {
+            count += contents.files.filter((f: string) => f.endsWith(".html")).length;
+          }
+
+          if (contents.folders) {
+            for (const folder of contents.folders) {
+              count += await countHtmlFiles(folder);
+            }
+          }
+
+          return count;
+        } catch {
+          return 0;
+        }
+      };
+
+      return await countHtmlFiles(sitePath);
     } catch {
       return 0;
     }

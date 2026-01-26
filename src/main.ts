@@ -236,6 +236,16 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     containerEl.createEl("hr", { cls: "leafpress-divider" });
 
+    // Note Template
+    containerEl.createEl("h3", { text: "Note Template" });
+    containerEl.createEl("p", {
+      text: "Use the note template when creating new notes. Available in templates/note.md",
+      cls: "leafpress-desc",
+    });
+    this.displayNoteTemplate(containerEl);
+
+    containerEl.createEl("hr", { cls: "leafpress-divider" });
+
     // Features
     containerEl.createEl("h3", { text: "Features" });
     containerEl.createEl("p", {
@@ -613,6 +623,61 @@ class LeafpressSettingTab extends PluginSettingTab {
     });
   }
 
+  private displayNoteTemplate(containerEl: HTMLElement): void {
+    const templateInfo = containerEl.createDiv("leafpress-template-info");
+    templateInfo.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
+    templateInfo.style.border = "1px solid var(--border-color, #ddd)";
+    templateInfo.style.borderRadius = "4px";
+    templateInfo.style.padding = "12px";
+    templateInfo.style.marginBottom = "12px";
+    templateInfo.style.fontSize = "0.9rem";
+
+    const fields = [
+      { name: "title", desc: "Note title" },
+      { name: "tags", desc: "Array of tags (e.g., ['markdown', 'note'])" },
+      { name: "createdAt", desc: "Creation timestamp (ISO format)" },
+      { name: "updatedAt", desc: "Last update timestamp (ISO format)" },
+      { name: "growth", desc: 'Growth stage: seedling, budding, evergreen' },
+      { name: "draft", desc: "Whether the note is in draft state" },
+    ];
+
+    const fieldsList = templateInfo.createEl("ul");
+    fieldsList.style.margin = "8px 0";
+    fieldsList.style.paddingLeft = "20px";
+
+    fields.forEach((field) => {
+      const li = fieldsList.createEl("li");
+      li.style.marginBottom = "4px";
+      const strong = li.createEl("strong", { text: field.name });
+      li.appendChild(document.createTextNode(` — ${field.desc}`));
+    });
+
+    const instructions = containerEl.createEl("p", {
+      text: "To use this template in Obsidian: Open the template plugin settings and point to templates/note.md. Then use 'Insert template' when creating new notes in the notes/ folder.",
+      cls: "leafpress-template-instructions",
+    });
+    instructions.style.fontSize = "0.9rem";
+    instructions.style.color = "var(--text-muted, #999)";
+    instructions.style.fontStyle = "italic";
+
+    new Setting(containerEl).addButton((btn) =>
+      btn
+        .setButtonText("View Template File")
+        .setClass("leafpress-view-template-btn")
+        .onClick(async () => {
+          try {
+            const templateContent = await this.app.vault.adapter.read(
+              "templates/note.md"
+            );
+            new TemplatePreviewModal(this.app, templateContent).open();
+          } catch (err) {
+            new Notice("Could not read template file");
+            console.error(err);
+          }
+        })
+    );
+  }
+
   private displayFeatureToggles(containerEl: HTMLElement): void {
     const config = this.currentConfig;
 
@@ -746,5 +811,33 @@ class PromptInputModal extends Modal {
         this.close();
       }
     });
+  }
+}
+
+class TemplatePreviewModal extends Modal {
+  private content: string;
+
+  constructor(app: App, content: string) {
+    super(app);
+    this.content = content;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Note Template" });
+
+    const preEl = contentEl.createEl("pre");
+    preEl.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
+    preEl.style.padding = "12px";
+    preEl.style.borderRadius = "4px";
+    preEl.style.overflow = "auto";
+    preEl.style.maxHeight = "400px";
+    preEl.style.fontSize = "0.85rem";
+    preEl.style.fontFamily = "monospace";
+    preEl.textContent = this.content;
+
+    const closeBtn = contentEl.createEl("button", { text: "Close" });
+    closeBtn.style.marginTop = "16px";
+    closeBtn.addEventListener("click", () => this.close());
   }
 }
