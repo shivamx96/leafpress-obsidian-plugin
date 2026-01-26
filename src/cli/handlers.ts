@@ -232,8 +232,61 @@ class InitializeModal extends Modal {
       await (this.app.vault.adapter as any).mkdir(staticDir);
       await (this.app.vault.adapter as any).mkdir(templatesDir);
 
-      // Create index.md
-      const indexContent = `# ${this.title}\n\nWelcome to your digital garden.`;
+      // Create index.md with getting started instructions
+      const indexContent = `# ${this.title}
+
+Welcome to your digital garden. This is your homepage.
+
+## Getting Started
+
+### 1. Create Your First Note
+
+- Navigate to the **notes** folder
+- Use the **note template** (Obsidian Templates plugin) to create new notes
+- Each note includes frontmatter fields:
+  - \`title\` - Note title
+  - \`tags\` - Array of tags for categorization
+  - \`createdAt\` - Auto-populated creation date
+  - \`updatedAt\` - Auto-populated update date
+  - \`growth\` - Growth stage: seedling, budding, or evergreen
+  - \`draft\` - Set to \`false\` to publish
+
+### 2. Configure Your Site
+
+Open the **leafpress** settings panel to:
+- Customize theme (fonts, colors, backgrounds)
+- Choose navigation styles
+- Manage navigation menu items
+- Enable/disable features (graph, search, TOC, wiki links, backlinks)
+
+### 3. Build & Deploy
+
+- **Build Site** - Compiles all notes to static HTML
+- **Preview Site** - Start a local dev server at http://localhost:3000
+- **Deploy** - Push your site to hosting (GitHub Pages, Vercel, etc.)
+
+## File Structure
+
+\`\`\`
+.
+├── index.md (this file)
+├── notes/ (your markdown notes)
+├── tags.md (auto-generated tag index)
+├── static/images/ (images and static assets)
+├── templates/note.md (note template)
+└── leafpress.json (site configuration)
+\`\`\`
+
+## Tips
+
+- Use **wiki links** (\`[[note-name]]\`) to connect your notes
+- The **graph visualization** shows connections between notes
+- **Backlinks** appear automatically on referenced notes
+- Use **tags** to organize and discover related content
+- Mark notes as **draft: true** to work in progress without publishing
+
+Happy writing! 🌱
+`;
       await this.app.vault.adapter.write("index.md", indexContent);
 
       // Create note template
@@ -246,8 +299,6 @@ updatedAt: ${now}
 growth: "seedling"
 draft: false
 ---
-
-# {{title}}
 
 Your note content goes here.
 `;
