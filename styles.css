@@ -33,3 +33,37 @@
 .leafpress-init-btn:hover {
   background-color: var(--interactive-accent-hover, #6d28d9);
 }
+
+.leafpress-empty-state {
+  color: var(--text-muted, #999);
+  font-style: italic;
+  margin: 12px 0;
+}
+
+.leafpress-nav-item {
+  transition: background-color 0.2s ease;
+}
+
+.leafpress-nav-item:hover {
+  background-color: var(--background-tertiary, #ececec);
+}
+
+.leafpress-nav-item button {
+  background-color: transparent;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+}
+
+.leafpress-nav-item button:hover {
+  background-color: var(--interactive-accent, #7c3aed);
+  color: white;
+  border-color: var(--interactive-accent, #7c3aed);
+}
+
+.leafpress-add-nav-btn {
+  margin-top: 12px;
+}

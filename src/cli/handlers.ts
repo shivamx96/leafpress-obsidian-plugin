@@ -224,19 +224,23 @@ class InitializeModal extends Modal {
       new Notice("Initializing site...");
 
       // Create directories (use relative paths for vault adapter)
-      const contentDir = "content";
+      const notesDir = "notes";
       const staticDir = "static/images";
 
-      await (this.app.vault.adapter as any).mkdir(contentDir);
+      await (this.app.vault.adapter as any).mkdir(notesDir);
       await (this.app.vault.adapter as any).mkdir(staticDir);
 
       // Create index.md
       const indexContent = `# ${this.title}\n\nWelcome to your digital garden.`;
-      await this.app.vault.adapter.write("content/index.md", indexContent);
+      await this.app.vault.adapter.write("index.md", indexContent);
 
-      // Create leafpress.json
+      // Create leafpress.json with default nav
       const config: any = {
-        title: this.title
+        title: this.title,
+        nav: [
+          { label: "Notes", path: "/notes" },
+          { label: "Tags", path: "/tags" }
+        ]
       };
       if (this.author) config.author = this.author;
       if (this.baseURL) config.baseURL = this.baseURL;

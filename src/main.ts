@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, App, Setting, Notice } from "obsidian";
+import { Plugin, PluginSettingTab, App, Setting, Notice, Modal } from "obsidian";
 import { BinaryManager } from "./cli/manager";
 import { CommandHandlers } from "./cli/handlers";
 import { LeafpressPanel, VIEW_TYPE_LEAFPRESS } from "./panel";
@@ -222,7 +222,17 @@ class LeafpressSettingTab extends PluginSettingTab {
     this.displayFontSettings(containerEl);
     this.displayColorSettings(containerEl);
     this.displayBackgroundSettings(containerEl);
-    this.displayNavSettings(containerEl);
+    this.displayNavStyleSettings(containerEl);
+
+    containerEl.createEl("hr", { cls: "leafpress-divider" });
+
+    // Navigation Items
+    containerEl.createEl("h3", { text: "Navigation Menu" });
+    containerEl.createEl("p", {
+      text: "Configure navigation menu items for your site.",
+      cls: "leafpress-desc",
+    });
+    this.displayNavItems(containerEl);
 
     containerEl.createEl("hr", { cls: "leafpress-divider" });
 
@@ -449,12 +459,12 @@ class LeafpressSettingTab extends PluginSettingTab {
     updateVisibility(currentMode);
   }
 
-  private displayNavSettings(containerEl: HTMLElement): void {
+  private displayNavStyleSettings(containerEl: HTMLElement): void {
     const navStyle = this.currentConfig?.theme?.navStyle || "base";
     const navActiveStyle = this.currentConfig?.theme?.navActiveStyle || "base";
 
     new Setting(containerEl)
-      .setName("Navigation Style")
+      .setName("Navigation Bar Style")
       .setDesc("Choose the navigation bar style")
       .addDropdown((dd) => {
         dd.addOption("base", "Base");
@@ -468,7 +478,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Active Navigation Style")
+      .setName("Active Item Style")
       .setDesc("Style for active navigation items")
       .addDropdown((dd) => {
         dd.addOption("base", "Base");
@@ -480,6 +490,127 @@ class LeafpressSettingTab extends PluginSettingTab {
           new Notice("Theme updated");
         });
       });
+  }
+
+  private displayNavItems(containerEl: HTMLElement): void {
+    const navItems = this.currentConfig?.nav || [];
+
+    // Display current nav items
+    if (navItems.length === 0) {
+      containerEl.createEl("p", {
+        text: "No navigation items configured.",
+        cls: "leafpress-empty-state",
+      });
+    } else {
+      navItems.forEach((item, index) => {
+        const itemContainer = containerEl.createDiv("leafpress-nav-item");
+        itemContainer.style.display = "flex";
+        itemContainer.style.alignItems = "center";
+        itemContainer.style.gap = "12px";
+        itemContainer.style.marginBottom = "12px";
+        itemContainer.style.padding = "8px";
+        itemContainer.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
+        itemContainer.style.borderRadius = "4px";
+
+        // Item display
+        const labelEl = itemContainer.createEl("span", {
+          text: `${item.label} → ${item.path}`,
+        });
+        labelEl.style.flex = "1";
+        labelEl.style.fontSize = "0.9rem";
+
+        // Edit button
+        const editBtn = itemContainer.createEl("button", { text: "Edit" });
+        editBtn.style.padding = "4px 8px";
+        editBtn.style.fontSize = "0.85rem";
+        editBtn.addEventListener("click", async () => {
+          await this.editNavItem(index);
+        });
+
+        // Delete button
+        const deleteBtn = itemContainer.createEl("button", { text: "Delete" });
+        deleteBtn.style.padding = "4px 8px";
+        deleteBtn.style.fontSize = "0.85rem";
+        deleteBtn.style.color = "var(--text-error, #cc3333)";
+        deleteBtn.addEventListener("click", async () => {
+          await this.deleteNavItem(index);
+        });
+      });
+    }
+
+    // Add new item button
+    new Setting(containerEl).addButton((btn) =>
+      btn
+        .setButtonText("+ Add Navigation Item")
+        .setClass("leafpress-add-nav-btn")
+        .onClick(async () => {
+          await this.addNavItem();
+        })
+    );
+  }
+
+  private async addNavItem(): Promise<void> {
+    const label = await this.promptInput("Label", "e.g., Notes");
+    if (!label) return;
+
+    const path = await this.promptInput("Path", "e.g., /notes");
+    if (!path) return;
+
+    const config = this.currentConfig;
+    if (!config) return;
+
+    if (!config.nav) {
+      config.nav = [];
+    }
+
+    config.nav.push({ label, path });
+    await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
+    new Notice("Navigation item added");
+    this.display();
+  }
+
+  private async editNavItem(index: number): Promise<void> {
+    const config = this.currentConfig;
+    if (!config || !config.nav || !config.nav[index]) return;
+
+    const item = config.nav[index];
+    const label = await this.promptInput("Label", item.label, item.label);
+    if (!label) return;
+
+    const path = await this.promptInput("Path", item.path, item.path);
+    if (!path) return;
+
+    config.nav[index] = { label, path };
+    await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
+    new Notice("Navigation item updated");
+    this.display();
+  }
+
+  private async deleteNavItem(index: number): Promise<void> {
+    const config = this.currentConfig;
+    if (!config || !config.nav) return;
+
+    config.nav.splice(index, 1);
+    await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
+    new Notice("Navigation item deleted");
+    this.display();
+  }
+
+  private promptInput(
+    title: string,
+    placeholder: string,
+    defaultValue: string = ""
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const inputModal = new PromptInputModal(
+        this.app,
+        title,
+        placeholder,
+        defaultValue,
+        (value) => resolve(value)
+      );
+      inputModal.open();
+    });
   }
 
   private displayFeatureToggles(containerEl: HTMLElement): void {
@@ -544,5 +675,76 @@ class LeafpressSettingTab extends PluginSettingTab {
             new Notice("Feature updated");
           })
       );
+  }
+}
+
+class PromptInputModal extends Modal {
+  private title: string;
+  private placeholder: string;
+  private defaultValue: string;
+  private onSubmit: (value: string | null) => void;
+  private inputValue: string = "";
+
+  constructor(
+    app: App,
+    title: string,
+    placeholder: string,
+    defaultValue: string,
+    onSubmit: (value: string | null) => void
+  ) {
+    super(app);
+    this.title = title;
+    this.placeholder = placeholder;
+    this.defaultValue = defaultValue;
+    this.inputValue = defaultValue;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: this.title });
+
+    const inputEl = contentEl.createEl("input", {
+      attr: {
+        type: "text",
+        placeholder: this.placeholder,
+        value: this.defaultValue,
+      },
+    });
+    inputEl.style.width = "100%";
+    inputEl.style.padding = "8px";
+    inputEl.style.marginBottom = "16px";
+    inputEl.style.boxSizing = "border-box";
+
+    inputEl.addEventListener("input", (e) => {
+      this.inputValue = (e.target as HTMLInputElement).value;
+    });
+
+    inputEl.focus();
+
+    const buttonContainer = contentEl.createEl("div");
+    buttonContainer.style.display = "flex";
+    buttonContainer.style.gap = "10px";
+    buttonContainer.style.justifyContent = "flex-end";
+
+    const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" });
+    cancelBtn.addEventListener("click", () => {
+      this.onSubmit(null);
+      this.close();
+    });
+
+    const submitBtn = buttonContainer.createEl("button", { text: "Save" });
+    submitBtn.addEventListener("click", () => {
+      this.onSubmit(this.inputValue.trim() || null);
+      this.close();
+    });
+
+    // Allow Enter to submit
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        this.onSubmit(this.inputValue.trim() || null);
+        this.close();
+      }
+    });
   }
 }
