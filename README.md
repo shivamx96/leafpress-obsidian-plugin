@@ -5,15 +5,14 @@ Turn your Obsidian vault into a beautiful digital garden. Build, preview, and de
 ![GitHub Release](https://img.shields.io/github/v/release/shivamx96/leafpress-obsidian-plugin?style=flat-square)
 ![License](https://img.shields.io/github/license/shivamx96/leafpress-obsidian-plugin?style=flat-square)
 
-<!--
+
 ## Screenshot
 ![leafpress Panel](./assets/screenshot.png)
--->
 
-<!--
-## Sample generated garden at (leafpress.in)[https://leafpress.in]
+
+## Sample garden at [leafpress.in](https://leafpress.in)
+
 ![leafpress Panel](./assets/sample_garden.png)
--->
 
 ## Features
 
