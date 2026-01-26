@@ -10,6 +10,8 @@ export const VIEW_TYPE_LEAFPRESS = "leafpress-view";
 export class LeafpressPanel extends ItemView {
   private binaryManager: BinaryManager | null = null;
   private vaultPath: string | null = null;
+  private statusRefreshInterval: NodeJS.Timer | null = null;
+  private isRefreshing = false;
 
   constructor(leaf: WorkspaceLeaf, binaryManager?: BinaryManager) {
     super(leaf);
@@ -57,6 +59,17 @@ export class LeafpressPanel extends ItemView {
   async onOpen() {
     try {
       console.log("[leafpress] Panel onOpen called");
+
+      // Set up refresh interval only on first call (not during refreshes)
+      if (!this.isRefreshing && !this.statusRefreshInterval) {
+        this.statusRefreshInterval = setInterval(() => {
+          this.isRefreshing = true;
+          this.onOpen().finally(() => {
+            this.isRefreshing = false;
+          });
+        }, 2000);
+      }
+
       const container = this.containerEl.children[1];
       container.empty();
       container.createEl("h2", { text: "leafpress" });
@@ -479,5 +492,10 @@ export class LeafpressPanel extends ItemView {
 
   async onClose() {
     console.log("[leafpress] Panel closed");
+    // Clear refresh interval
+    if (this.statusRefreshInterval) {
+      clearInterval(this.statusRefreshInterval);
+      this.statusRefreshInterval = null;
+    }
   }
 }

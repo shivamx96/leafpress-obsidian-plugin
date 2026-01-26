@@ -54,26 +54,50 @@ export class CommandHandlers {
 
   async preview(): Promise<void> {
     try {
-      new Notice("Preparing...");
-      await this.binaryManager.ensureBinary();
+      // Check if server is already running
+      const serverRunning = await this.isServerRunning();
 
-      // Kill existing process on port 3000
-      new Notice("Stopping existing preview server...");
-      await this.killPortProcess(3000);
-
-      // Start serve without waiting (it's a long-running process)
-      new Notice("Starting preview server...");
-      this.binaryManager.execCommand(["serve"]);
-
-      // Give server a moment to start, then open browser
-      setTimeout(() => {
+      if (serverRunning) {
+        // Server is already running, just open it
+        console.log("[leafpress] Server already running, opening preview...");
         spawn("open", ["http://localhost:3000"]);
-        new Notice("✓ Preview server started at http://localhost:3000");
-      }, 2000);
+        new Notice("✓ Preview opened at http://localhost:3000");
+      } else {
+        // Server not running, start it
+        new Notice("Preparing...");
+        await this.binaryManager.ensureBinary();
+        new Notice("Starting preview server...");
+        this.binaryManager.execCommand(["serve"]);
+
+        // Give server a moment to start, then open browser
+        setTimeout(() => {
+          spawn("open", ["http://localhost:3000"]);
+          new Notice("✓ Preview server started at http://localhost:3000");
+        }, 2000);
+      }
     } catch (err) {
       new Notice(`✗ Error: ${err}`);
       console.error(err);
     }
+  }
+
+  private isServerRunning(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const proc = spawn("sh", ["-c", "lsof -ti:3000"]);
+      let output = "";
+
+      proc.stdout?.on("data", (data) => {
+        output += data.toString();
+      });
+
+      proc.on("close", () => {
+        resolve(output.trim().length > 0);
+      });
+
+      proc.on("error", () => {
+        resolve(false);
+      });
+    });
   }
 
   private killPortProcess(port: number): Promise<void> {
