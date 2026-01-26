@@ -165,6 +165,7 @@ export class LeafpressPanel extends ItemView {
           pendingSummary.style.border = "1px solid var(--border-color, #ddd)";
           pendingSummary.style.borderRadius = "4px";
           pendingSummary.style.padding = "8px";
+          pendingSummary.style.marginTop = "16px";
           pendingSummary.style.marginBottom = "12px";
           pendingSummary.style.fontSize = "0.85rem";
 
