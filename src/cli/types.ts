@@ -24,6 +24,11 @@ export interface LeafpressThemeConfig {
   navActiveStyle?: "base" | "box" | "underlined";
 }
 
+export interface DeploySettings {
+  provider: "github-pages" | "vercel" | "netlify";
+  settings?: Record<string, any>;
+}
+
 export interface LeafpressConfig {
   title: string;
   author?: string;
@@ -41,4 +46,5 @@ export interface LeafpressConfig {
   nav?: Array<{ label: string; path: string }>;
   headExtra?: string;
   ignore?: string[];
+  deploy?: DeploySettings;
 }

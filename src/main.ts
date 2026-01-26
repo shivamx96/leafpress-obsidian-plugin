@@ -2,7 +2,7 @@ import { Plugin, PluginSettingTab, App, Setting, Notice, Modal } from "obsidian"
 import { BinaryManager } from "./cli/manager";
 import { CommandHandlers } from "./cli/handlers";
 import { LeafpressPanel, VIEW_TYPE_LEAFPRESS } from "./panel";
-import { LeafpressConfig } from "./cli/types";
+import { LeafpressConfig, DeploySettings } from "./cli/types";
 import {
   readLeafpressConfig,
   updateThemeProperty,
@@ -253,6 +253,16 @@ class LeafpressSettingTab extends PluginSettingTab {
       cls: "leafpress-desc",
     });
     this.displayFeatureToggles(containerEl);
+
+    containerEl.createEl("hr", { cls: "leafpress-divider" });
+
+    // Deployment
+    containerEl.createEl("h3", { text: "Deployment" });
+    containerEl.createEl("p", {
+      text: "Configure deployment settings for your site.",
+      cls: "leafpress-desc",
+    });
+    this.displayDeploymentSettings(containerEl);
   }
 
   private displayInitializePrompt(containerEl: HTMLElement): void {
@@ -678,6 +688,127 @@ class LeafpressSettingTab extends PluginSettingTab {
     );
   }
 
+  private displayDeploymentSettings(containerEl: HTMLElement): void {
+    const config = this.currentConfig;
+    const deployConfig = config?.deploy;
+    const provider = deployConfig?.provider || "github-pages";
+
+    // Deployment provider selection
+    new Setting(containerEl)
+      .setName("Deployment Provider")
+      .setDesc("Choose where to deploy your site")
+      .addDropdown((dd) => {
+        dd.addOption("github-pages", "GitHub Pages");
+        dd.addOption("vercel", "Vercel");
+        dd.addOption("netlify", "Netlify");
+        dd.setValue(provider);
+        dd.onChange(async (value) => {
+          if (!config) return;
+          if (!config.deploy) {
+            config.deploy = { provider: value as any, settings: {} };
+          } else {
+            config.deploy.provider = value as any;
+          }
+          const { writeLeafpressConfig } = await import("./utils/config");
+          await writeLeafpressConfig(this.app, config);
+          new Notice(`Deployment provider set to ${value}`);
+          this.display();
+        });
+      });
+
+    // Show provider info
+    const infoEl = containerEl.createDiv("leafpress-deploy-info");
+    infoEl.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
+    infoEl.style.border = "1px solid var(--border-color, #ddd)";
+    infoEl.style.borderRadius = "4px";
+    infoEl.style.padding = "12px";
+    infoEl.style.marginBottom = "12px";
+    infoEl.style.fontSize = "0.9rem";
+
+    const providerInfo: Record<string, { title: string; desc: string }> = {
+      "github-pages": {
+        title: "GitHub Pages",
+        desc: "Deploy to GitHub Pages using OAuth authentication. Supports both user/org sites and project repos.",
+      },
+      vercel: {
+        title: "Vercel",
+        desc: "Deploy to Vercel with automatic SSL and edge network. Requires Vercel token.",
+      },
+      netlify: {
+        title: "Netlify",
+        desc: "Deploy to Netlify with CDN and smart uploads. Requires Netlify Personal Access Token.",
+      },
+    };
+
+    const info = providerInfo[provider];
+    if (info) {
+      infoEl.createEl("strong", { text: info.title });
+      infoEl.appendChild(document.createTextNode(` — ${info.desc}`));
+    }
+
+    // Configuration status
+    const statusEl = containerEl.createDiv("leafpress-deploy-status");
+    statusEl.style.display = "flex";
+    statusEl.style.alignItems = "center";
+    statusEl.style.gap = "8px";
+    statusEl.style.marginBottom = "12px";
+
+    if (deployConfig?.settings && Object.keys(deployConfig.settings).length > 0) {
+      statusEl.createEl("span", { text: "✓ Configured" });
+      statusEl.style.color = "var(--text-success, #00aa00)";
+    } else {
+      statusEl.createEl("span", { text: "⚪ Not configured" });
+      statusEl.style.color = "var(--text-muted, #999)";
+    }
+
+    // Reconfigure button
+    new Setting(containerEl)
+      .addButton((btn) =>
+        btn
+          .setButtonText("Configure Deployment")
+          .setClass("leafpress-deploy-config-btn")
+          .onClick(async () => {
+            new DeploymentSetupModal(this.app, this.currentConfig, async () => {
+              await this.display();
+            }).open();
+          })
+      )
+      .addButton((btn) =>
+        btn
+          .setButtonText("Deploy Now")
+          .setClass("leafpress-deploy-btn")
+          .onClick(async () => {
+            await this.plugin.commandHandlers.deploy();
+          })
+      );
+
+    // Provider-specific info
+    const docsLink = containerEl.createDiv("leafpress-deploy-docs");
+    docsLink.style.fontSize = "0.85rem";
+    docsLink.style.color = "var(--text-muted, #999)";
+    docsLink.style.marginTop = "12px";
+
+    const docsByProvider: Record<string, string> = {
+      "github-pages":
+        "https://github.com/shivamx96/leafpress/wiki/Deploy-to-GitHub-Pages",
+      vercel: "https://github.com/shivamx96/leafpress/wiki/Deploy-to-Vercel",
+      netlify:
+        "https://github.com/shivamx96/leafpress/wiki/Deploy-to-Netlify",
+    };
+
+    if (docsByProvider[provider]) {
+      const linkEl = docsLink.createEl("a", {
+        text: "View deployment guide →",
+        href: "#",
+      });
+      linkEl.style.color = "var(--text-link, #7c3aed)";
+      linkEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.open(docsByProvider[provider]);
+      });
+    }
+  }
+
   private displayFeatureToggles(containerEl: HTMLElement): void {
     const config = this.currentConfig;
 
@@ -839,5 +970,94 @@ class TemplatePreviewModal extends Modal {
     const closeBtn = contentEl.createEl("button", { text: "Close" });
     closeBtn.style.marginTop = "16px";
     closeBtn.addEventListener("click", () => this.close());
+  }
+}
+
+class DeploymentSetupModal extends Modal {
+  private config: LeafpressConfig | null;
+  private onComplete: () => void;
+  private provider: "github-pages" | "vercel" | "netlify";
+
+  constructor(
+    app: App,
+    config: LeafpressConfig | null,
+    onComplete: () => void
+  ) {
+    super(app);
+    this.config = config;
+    this.onComplete = onComplete;
+    this.provider = config?.deploy?.provider || "github-pages";
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Setup Deployment" });
+
+    const infoBox = contentEl.createEl("div", {
+      cls: "deployment-setup-instructions",
+    });
+    infoBox.style.backgroundColor = "#f0f7ff";
+    infoBox.style.border = "1px solid #7c3aed";
+    infoBox.style.borderRadius = "4px";
+    infoBox.style.padding = "12px";
+    infoBox.style.marginBottom = "16px";
+    infoBox.style.lineHeight = "1.6";
+
+    infoBox.createEl("strong", {
+      text: "Initial setup requires interactive terminal",
+    });
+    const desc = infoBox.createEl("p");
+    desc.style.margin = "8px 0 0 0";
+    desc.style.fontSize = "0.9rem";
+    desc.textContent =
+      "Run the following command in your vault directory to set up deployment:";
+
+    // Command
+    const cmdBox = contentEl.createEl("div");
+    cmdBox.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
+    cmdBox.style.border = "1px solid var(--border-color, #ddd)";
+    cmdBox.style.borderRadius = "4px";
+    cmdBox.style.padding = "12px";
+    cmdBox.style.marginBottom = "16px";
+    cmdBox.style.fontFamily = "monospace";
+    cmdBox.style.overflowX = "auto";
+
+    const cmd = cmdBox.createEl("code");
+    cmd.textContent = "leafpress deploy";
+    cmd.style.fontSize = "0.9rem";
+
+    // Steps
+    const stepsEl = contentEl.createEl("div");
+    stepsEl.createEl("strong", { text: "Steps:" });
+    const stepsList = stepsEl.createEl("ol");
+    stepsList.style.margin = "8px 0";
+    stepsList.style.paddingLeft = "20px";
+
+    const steps = [
+      "Open Terminal in your vault directory",
+      "Run: leafpress deploy",
+      "Follow the browser or token-based authentication",
+      "Configuration will be saved to leafpress.json",
+      "Return here and click Deploy Now",
+    ];
+
+    steps.forEach((step) => {
+      const li = stepsList.createEl("li");
+      li.textContent = step;
+      li.style.marginBottom = "4px";
+    });
+
+    // Buttons
+    const buttonContainer = contentEl.createEl("div");
+    buttonContainer.style.display = "flex";
+    buttonContainer.style.gap = "10px";
+    buttonContainer.style.justifyContent = "flex-end";
+    buttonContainer.style.marginTop = "20px";
+
+    const closeBtn = buttonContainer.createEl("button", { text: "Close" });
+    closeBtn.addEventListener("click", () => {
+      this.close();
+      this.onComplete();
+    });
   }
 }

@@ -231,6 +231,7 @@ export class BinaryManager {
 
       const child = spawn(this.getBinaryPath(), args, {
         cwd: this.getVaultPath(),
+        env: process.env,
       });
 
       child.stdout?.on("data", (data) => {

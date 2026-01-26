@@ -93,32 +93,213 @@ export class CommandHandlers {
     });
   }
 
-  async deploy(): Promise<void> {
+  async deploy(reconfigure: boolean = false): Promise<void> {
     try {
       new Notice("Preparing...");
       await this.binaryManager.ensureBinary();
-      new Notice("Starting deployment...");
 
-      const result = await this.binaryManager.execCommand([
-        "deploy",
-        "--skip-build",
-      ]);
+      const args = ["deploy", "--skip-build"];
+      if (reconfigure) {
+        args.push("--reconfigure");
+        new Notice("Reconfiguring deployment...");
+      } else {
+        new Notice("Starting deployment...");
+      }
+
+      const result = await this.binaryManager.execCommand(args);
 
       if (result.success) {
         // Parse deployment URL from output
         const urlMatch = result.stdout.match(/https?:\/\/[^\s]+/);
         const url = urlMatch ? urlMatch[0] : "Deployment successful";
 
-        new Notice(`✓ Deployed: ${url}`);
-        // TODO: show deployment result modal with URL
+        const deployResult: any = {
+          url,
+          success: true,
+          output: result.stdout,
+        };
+
+        new Notice(
+          `✓ ${reconfigure ? "Configuration complete" : "Deployed"}: ${url}`
+        );
+        new DeploymentResultModal(this.app, deployResult).open();
       } else {
-        new Notice("✗ Deployment failed");
-        console.error(result.stderr);
+        // Check for specific error types
+        const isNonInteractiveError = result.stderr.includes(
+          "non-interactive mode"
+        );
+        const isMissingTokenError =
+          result.stderr.includes("no deploy configuration") ||
+          result.stderr.includes("token") ||
+          result.stderr.includes("authentication");
+
+        const errorResult: any = {
+          success: false,
+          error: result.stderr,
+          output: result.stdout,
+          isNonInteractiveError,
+          isMissingTokenError,
+        };
+        new DeploymentResultModal(this.app, errorResult).open();
       }
     } catch (err) {
       new Notice(`✗ Error: ${err}`);
       console.error(err);
     }
+  }
+}
+
+class DeploymentResultModal extends Modal {
+  private result: any;
+
+  constructor(app: App, result: any) {
+    super(app);
+    this.result = result;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+
+    if (this.result.success) {
+      contentEl.createEl("h2", { text: "✓ Deployment Complete" });
+
+      const urlEl = contentEl.createEl("div", {
+        cls: "deployment-result-section",
+      });
+      urlEl.createEl("strong", { text: "Site URL:" });
+      const link = urlEl.createEl("a", {
+        text: this.result.url,
+        href: this.result.url,
+      });
+      link.style.color = "var(--text-link, #7c3aed)";
+      link.style.display = "block";
+      link.style.marginTop = "8px";
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.open(this.result.url);
+      });
+
+      if (this.result.output) {
+        const outputEl = contentEl.createEl("div", {
+          cls: "deployment-result-section",
+        });
+        outputEl.createEl("strong", { text: "Output:" });
+        const preEl = outputEl.createEl("pre");
+        preEl.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
+        preEl.style.padding = "12px";
+        preEl.style.borderRadius = "4px";
+        preEl.style.overflow = "auto";
+        preEl.style.maxHeight = "300px";
+        preEl.style.fontSize = "0.85rem";
+        preEl.style.marginTop = "8px";
+        preEl.textContent = this.result.output;
+      }
+    } else {
+      contentEl.createEl("h2", { text: "✗ Deployment Failed" });
+
+      // Special handling for non-interactive mode errors
+      if (this.result.isNonInteractiveError) {
+        const instructionsEl = contentEl.createEl("div", {
+          cls: "deployment-setup-instructions",
+        });
+        instructionsEl.style.backgroundColor = "#fff3cd";
+        instructionsEl.style.border = "1px solid #ffc107";
+        instructionsEl.style.borderRadius = "4px";
+        instructionsEl.style.padding = "12px";
+        instructionsEl.style.marginBottom = "12px";
+
+        instructionsEl.createEl("strong", { text: "Setup Required" });
+        const setupSteps = instructionsEl.createEl("ol");
+        setupSteps.style.margin = "8px 0";
+        setupSteps.style.paddingLeft = "20px";
+
+        const li1 = setupSteps.createEl("li");
+        li1.textContent = 'Run "leafpress deploy" in a terminal within your vault';
+        li1.style.marginBottom = "4px";
+
+        const li2 = setupSteps.createEl("li");
+        li2.textContent =
+          "Complete the authentication/configuration in the interactive prompt";
+        li2.style.marginBottom = "4px";
+
+        const li3 = setupSteps.createEl("li");
+        li3.textContent =
+          "After setup, you can deploy from the plugin using Deploy Now";
+
+        const docsEl = instructionsEl.createEl("p");
+        docsEl.style.margin = "8px 0 0 0";
+        docsEl.style.fontSize = "0.9rem";
+        docsEl.createEl("strong", { text: "Why?" });
+        docsEl.appendChild(
+          document.createTextNode(
+            " Initial setup requires browser authentication or token entry, which needs an interactive terminal."
+          )
+        );
+      } else if (this.result.isMissingTokenError) {
+        const tokenEl = contentEl.createEl("div", {
+          cls: "deployment-setup-instructions",
+        });
+        tokenEl.style.backgroundColor = "#fff3cd";
+        tokenEl.style.border = "1px solid #ffc107";
+        tokenEl.style.borderRadius = "4px";
+        tokenEl.style.padding = "12px";
+        tokenEl.style.marginBottom = "12px";
+
+        tokenEl.createEl("strong", { text: "Authentication Required" });
+        const tokenSteps = tokenEl.createEl("ol");
+        tokenSteps.style.margin = "8px 0";
+        tokenSteps.style.paddingLeft = "20px";
+
+        const li1 = tokenSteps.createEl("li");
+        li1.textContent =
+          'Run "leafpress deploy" in terminal to set up or re-authenticate';
+        li1.style.marginBottom = "4px";
+
+        const li2 = tokenSteps.createEl("li");
+        li2.textContent = "Complete the provider setup (OAuth or token entry)";
+        li2.style.marginBottom = "4px";
+
+        const li3 = tokenSteps.createEl("li");
+        li3.textContent = "Then deploy again from the Obsidian plugin";
+
+        const infoEl = tokenEl.createEl("p");
+        infoEl.style.margin = "8px 0 0 0";
+        infoEl.style.fontSize = "0.9rem";
+        infoEl.createEl("strong", { text: "Note:" });
+        infoEl.appendChild(
+          document.createTextNode(
+            " Tokens and deployment config must be set up interactively first."
+          )
+        );
+      } else if (this.result.error) {
+        const errorEl = contentEl.createEl("div", {
+          cls: "deployment-result-section",
+        });
+        errorEl.createEl("strong", { text: "Error:" });
+        const preEl = errorEl.createEl("pre");
+        preEl.style.backgroundColor = "#ffe0e0";
+        preEl.style.color = "#cc3333";
+        preEl.style.padding = "12px";
+        preEl.style.borderRadius = "4px";
+        preEl.style.overflow = "auto";
+        preEl.style.maxHeight = "300px";
+        preEl.style.fontSize = "0.85rem";
+        preEl.style.marginTop = "8px";
+        preEl.textContent = this.result.error;
+      }
+
+      const infoEl = contentEl.createEl("p");
+      infoEl.style.marginTop = "12px";
+      infoEl.style.fontSize = "0.9rem";
+      infoEl.style.color = "var(--text-muted, #999)";
+      infoEl.textContent = this.result.isNonInteractiveError
+        ? "Check the console for more details on deployment output."
+        : "Check the console for more details. Ensure deployment is configured correctly.";
+    }
+
+    const closeBtn = contentEl.createEl("button", { text: "Close" });
+    closeBtn.style.marginTop = "16px";
+    closeBtn.addEventListener("click", () => this.close());
   }
 }
 
