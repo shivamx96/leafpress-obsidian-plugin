@@ -1,0 +1,35 @@
+/* Leafpress Plugin Styles */
+
+.leafpress-divider {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid var(--divider-color, #ccc);
+}
+
+.leafpress-desc {
+  color: var(--text-muted, #999);
+  font-size: 0.875rem;
+  margin: 8px 0 16px 0;
+}
+
+.leafpress-init-banner {
+  background-color: var(--background-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.leafpress-init-banner p {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+}
+
+.leafpress-init-btn {
+  background-color: var(--interactive-accent, #7c3aed);
+  color: white;
+}
+
+.leafpress-init-btn:hover {
+  background-color: var(--interactive-accent-hover, #6d28d9);
+}

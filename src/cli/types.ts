@@ -11,13 +11,34 @@ export interface DeployResult {
   timestamp: number;
 }
 
+export interface LeafpressThemeConfig {
+  fontHeading?: string;
+  fontBody?: string;
+  fontMono?: string;
+  accent?: string;
+  background?: {
+    light: string;
+    dark: string;
+  };
+  navStyle?: "base" | "sticky" | "glassy";
+  navActiveStyle?: "base" | "box" | "underlined";
+}
+
 export interface LeafpressConfig {
   title: string;
   author?: string;
   baseURL?: string;
   description?: string;
-  theme?: {
-    navStyle?: string;
-    navActiveStyle?: string;
-  };
+  image?: string;
+  outputDir?: string;
+  port?: number;
+  theme?: LeafpressThemeConfig;
+  graph?: boolean;
+  toc?: boolean;
+  search?: boolean;
+  wikilinks?: boolean;
+  backlinks?: boolean;
+  nav?: Array<{ label: string; path: string }>;
+  headExtra?: string;
+  ignore?: string[];
 }
