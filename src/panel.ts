@@ -1,10 +1,10 @@
 import { ItemView, WorkspaceLeaf, Notice, EventRef } from "obsidian";
-import { spawn, ChildProcess } from "child_process";
-import * as path from "path";
+import { ChildProcess } from "child_process";
 import * as crypto from "crypto";
 import { BinaryManager } from "./cli/manager";
 import { readLeafpressConfig } from "./utils/config";
 import { LeafpressConfig } from "./cli/types";
+import { openInBrowser, isPortInUse, killPortProcess } from "./utils/platform";
 
 export const VIEW_TYPE_LEAFPRESS = "leafpress-view";
 
@@ -182,7 +182,7 @@ export class LeafpressPanel extends ItemView {
       previewBtn.disabled = !serverRunning;
       previewBtn.title = serverRunning ? "Open preview in browser" : "Server must be running to open preview";
       previewBtn.addEventListener("click", () => {
-        spawn("open", ["http://localhost:3000"]);
+        openInBrowser("http://localhost:3000");
       });
 
       // Deploy button (if configured)
@@ -277,22 +277,7 @@ export class LeafpressPanel extends ItemView {
   }
 
   private isServerRunning(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const proc = spawn("lsof", ["-t", "-i", ":3000"]);
-      let output = "";
-
-      proc.stdout?.on("data", (data) => {
-        output += data.toString();
-      });
-
-      proc.on("close", () => {
-        resolve(output.trim().length > 0);
-      });
-
-      proc.on("error", () => {
-        resolve(false);
-      });
-    });
+    return isPortInUse(3000);
   }
 
   private async countBuiltPages(): Promise<number> {
@@ -379,50 +364,13 @@ export class LeafpressPanel extends ItemView {
         this.serverProcess = null;
       } else {
         // Fallback: kill by port if we lost the process reference
-        await this.killPortProcess(3000);
+        await killPortProcess(3000);
       }
       // Wait for process to actually terminate
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (err) {
       console.error("[leafpress] Error stopping server:", err);
     }
-  }
-
-  private killPortProcess(port: number): Promise<void> {
-    return new Promise((resolve) => {
-      // First, find PIDs using the port
-      const findProc = spawn("lsof", ["-t", "-i", `:${port}`]);
-      let pids = "";
-
-      findProc.stdout?.on("data", (data) => {
-        pids += data.toString();
-      });
-
-      findProc.on("close", () => {
-        const pidList = pids.trim().split("\n").filter(Boolean);
-        if (pidList.length === 0) {
-          resolve();
-          return;
-        }
-
-        // Kill each PID individually using process.kill
-        let killed = 0;
-        for (const pidStr of pidList) {
-          const pid = parseInt(pidStr, 10);
-          if (!isNaN(pid)) {
-            try {
-              process.kill(pid, "SIGTERM");
-              killed++;
-            } catch (e) {
-              // Process may already be dead
-            }
-          }
-        }
-        resolve();
-      });
-
-      findProc.on("error", () => resolve());
-    });
   }
 
   private waitForServerReady(timeoutMs: number): Promise<void> {

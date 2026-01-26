@@ -1,8 +1,7 @@
 import { App, Notice, Modal } from "obsidian";
 import { BinaryManager } from "./manager";
 import { CLIResult } from "./types";
-import * as path from "path";
-import { spawn } from "child_process";
+import { openInBrowser, isPortInUse } from "../utils/platform";
 
 export class CommandHandlers {
   private app: App;
@@ -55,12 +54,11 @@ export class CommandHandlers {
   async preview(): Promise<void> {
     try {
       // Check if server is already running
-      const serverRunning = await this.isServerRunning();
+      const serverRunning = await isPortInUse(3000);
 
       if (serverRunning) {
         // Server is already running, just open it
-        console.log("[leafpress] Server already running, opening preview...");
-        spawn("open", ["http://localhost:3000"]);
+        openInBrowser("http://localhost:3000");
         new Notice("✓ Preview opened at http://localhost:3000");
       } else {
         // Server not running, start it
@@ -71,7 +69,7 @@ export class CommandHandlers {
 
         // Give server a moment to start, then open browser
         setTimeout(() => {
-          spawn("open", ["http://localhost:3000"]);
+          openInBrowser("http://localhost:3000");
           new Notice("✓ Preview server started at http://localhost:3000");
         }, 2000);
       }
@@ -79,87 +77,6 @@ export class CommandHandlers {
       new Notice(`✗ Error: ${err}`);
       console.error(err);
     }
-  }
-
-  private isServerRunning(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const proc = spawn("lsof", ["-t", "-i", ":3000"]);
-      let output = "";
-
-      proc.stdout?.on("data", (data) => {
-        output += data.toString();
-      });
-
-      proc.on("close", () => {
-        resolve(output.trim().length > 0);
-      });
-
-      proc.on("error", () => {
-        resolve(false);
-      });
-    });
-  }
-
-  private killPortProcess(port: number): Promise<void> {
-    return new Promise((resolve) => {
-      const platform = process.platform;
-
-      if (platform === "win32") {
-        // Windows: use netstat and taskkill
-        const findProc = spawn("cmd", ["/c", `netstat -ano | findstr :${port}`]);
-        let output = "";
-
-        findProc.stdout?.on("data", (data) => {
-          output += data.toString();
-        });
-
-        findProc.on("close", () => {
-          // Parse PIDs from netstat output
-          const lines = output.split("\n");
-          const pids = new Set<number>();
-          for (const line of lines) {
-            const parts = line.trim().split(/\s+/);
-            const pid = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(pid) && pid > 0) pids.add(pid);
-          }
-          for (const pid of pids) {
-            try {
-              process.kill(pid, "SIGTERM");
-            } catch (e) {
-              // Process may already be dead
-            }
-          }
-          resolve();
-        });
-
-        findProc.on("error", () => resolve());
-      } else {
-        // Unix: use lsof
-        const findProc = spawn("lsof", ["-t", "-i", `:${port}`]);
-        let pids = "";
-
-        findProc.stdout?.on("data", (data) => {
-          pids += data.toString();
-        });
-
-        findProc.on("close", () => {
-          const pidList = pids.trim().split("\n").filter(Boolean);
-          for (const pidStr of pidList) {
-            const pid = parseInt(pidStr, 10);
-            if (!isNaN(pid)) {
-              try {
-                process.kill(pid, "SIGTERM");
-              } catch (e) {
-                // Process may already be dead
-              }
-            }
-          }
-          resolve();
-        });
-
-        findProc.on("error", () => resolve());
-      }
-    });
   }
 
   async deploy(reconfigure: boolean = false): Promise<void> {
