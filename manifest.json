@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-leafpress",
+  "name": "Leafpress",
+  "version": "0.1.0",
+  "minAppVersion": "1.3.0",
+  "description": "Build and deploy your Obsidian vault as a Leafpress digital garden",
+  "author": "Shivam",
+  "authorUrl": "https://github.com/shivamx96",
+  "fundingUrl": "",
+  "isDesktopOnly": false
+}

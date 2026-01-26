@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+package-lock.json
+yarn.lock
+
+# Build output
+main.js
+main.js.map
+*.d.ts
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Plugin data
+bin/
+data/
+
+.docs
+.idea
+*.iml
