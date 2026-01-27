@@ -600,11 +600,8 @@ class LeafpressSettingTab extends PluginSettingTab {
   }
 
   private async addNavItem(): Promise<void> {
-    const label = await this.promptInput("Label", "e.g., Notes");
-    if (!label) return;
-
-    const path = await this.promptInput("Path", "e.g., /notes");
-    if (!path) return;
+    const result = await this.promptNavItem("Add Navigation Item", "", "");
+    if (!result) return;
 
     const config = this.currentConfig;
     if (!config) return;
@@ -613,7 +610,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       config.nav = [];
     }
 
-    config.nav.push({ label, path });
+    config.nav.push(result);
     await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
     new Notice("Navigation item added");
     this.display();
@@ -624,13 +621,10 @@ class LeafpressSettingTab extends PluginSettingTab {
     if (!config || !config.nav || !config.nav[index]) return;
 
     const item = config.nav[index];
-    const label = await this.promptInput("Label", item.label, item.label);
-    if (!label) return;
+    const result = await this.promptNavItem("Edit Navigation Item", item.label, item.path);
+    if (!result) return;
 
-    const path = await this.promptInput("Path", item.path, item.path);
-    if (!path) return;
-
-    config.nav[index] = { label, path };
+    config.nav[index] = result;
     await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
     new Notice("Navigation item updated");
     this.display();
@@ -646,20 +640,20 @@ class LeafpressSettingTab extends PluginSettingTab {
     this.display();
   }
 
-  private promptInput(
+  private promptNavItem(
     title: string,
-    placeholder: string,
-    defaultValue: string = ""
-  ): Promise<string | null> {
+    defaultLabel: string,
+    defaultPath: string
+  ): Promise<{ label: string; path: string } | null> {
     return new Promise((resolve) => {
-      const inputModal = new PromptInputModal(
+      const modal = new NavItemModal(
         this.app,
         title,
-        placeholder,
-        defaultValue,
-        (value) => resolve(value)
+        defaultLabel,
+        defaultPath,
+        (result) => resolve(result)
       );
-      inputModal.open();
+      modal.open();
     });
   }
 
@@ -797,25 +791,27 @@ class LeafpressSettingTab extends PluginSettingTab {
   }
 }
 
-class PromptInputModal extends Modal {
+class NavItemModal extends Modal {
   private title: string;
-  private placeholder: string;
-  private defaultValue: string;
-  private onSubmit: (value: string | null) => void;
-  private inputValue: string = "";
+  private defaultLabel: string;
+  private defaultPath: string;
+  private onSubmit: (result: { label: string; path: string } | null) => void;
+  private labelValue: string;
+  private pathValue: string;
 
   constructor(
     app: App,
     title: string,
-    placeholder: string,
-    defaultValue: string,
-    onSubmit: (value: string | null) => void
+    defaultLabel: string,
+    defaultPath: string,
+    onSubmit: (result: { label: string; path: string } | null) => void
   ) {
     super(app);
     this.title = title;
-    this.placeholder = placeholder;
-    this.defaultValue = defaultValue;
-    this.inputValue = defaultValue;
+    this.defaultLabel = defaultLabel;
+    this.defaultPath = defaultPath;
+    this.labelValue = defaultLabel;
+    this.pathValue = defaultPath;
     this.onSubmit = onSubmit;
   }
 
@@ -823,21 +819,30 @@ class PromptInputModal extends Modal {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: this.title });
 
-    new Setting(contentEl).addText((text) => {
-      text
-        .setPlaceholder(this.placeholder)
-        .setValue(this.defaultValue)
-        .onChange((value) => {
-          this.inputValue = value;
-        });
-      text.inputEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          this.onSubmit(this.inputValue.trim() || null);
-          this.close();
-        }
+    new Setting(contentEl)
+      .setName("Label")
+      .setDesc("Display text in navigation menu")
+      .addText((text) => {
+        text
+          .setPlaceholder("e.g., Notes")
+          .setValue(this.defaultLabel)
+          .onChange((value) => {
+            this.labelValue = value;
+          });
+        setTimeout(() => text.inputEl.focus(), 10);
       });
-      setTimeout(() => text.inputEl.focus(), 10);
-    });
+
+    new Setting(contentEl)
+      .setName("Path")
+      .setDesc("URL path (e.g., /notes or /tags)")
+      .addText((text) => {
+        text
+          .setPlaceholder("e.g., /notes")
+          .setValue(this.defaultPath)
+          .onChange((value) => {
+            this.pathValue = value;
+          });
+      });
 
     new Setting(contentEl)
       .addButton((btn) =>
@@ -851,7 +856,13 @@ class PromptInputModal extends Modal {
           .setButtonText("Save")
           .setCta()
           .onClick(() => {
-            this.onSubmit(this.inputValue.trim() || null);
+            const label = this.labelValue.trim();
+            const path = this.pathValue.trim();
+            if (!label || !path) {
+              new Notice("Both label and path are required");
+              return;
+            }
+            this.onSubmit({ label, path });
             this.close();
           })
       );
