@@ -24,8 +24,11 @@ export function isPortInUse(port: number): Promise<boolean> {
     const platform = process.platform;
 
     if (platform === "win32") {
-      // Windows: use netstat
-      const proc = spawn("netstat", ["-ano"]);
+      // Windows: use netstat, filter for LISTENING state only
+      const proc = spawn("cmd", [
+        "/c",
+        `netstat -ano | findstr :${port} | findstr LISTENING`,
+      ]);
       let output = "";
 
       proc.stdout?.on("data", (data) => {
@@ -33,7 +36,7 @@ export function isPortInUse(port: number): Promise<boolean> {
       });
 
       proc.on("close", () => {
-        resolve(output.includes(`:${port}`));
+        resolve(output.trim().length > 0);
       });
 
       proc.on("error", () => resolve(false));
@@ -63,10 +66,10 @@ export function killPortProcess(port: number): Promise<void> {
     const platform = process.platform;
 
     if (platform === "win32") {
-      // Windows: use netstat to find PID, then taskkill
+      // Windows: use netstat to find PID of LISTENING socket, then taskkill
       const proc = spawn("cmd", [
         "/c",
-        `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port}') do taskkill /F /PID %a`,
+        `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port} ^| findstr LISTENING') do taskkill /F /PID %a`,
       ]);
       proc.on("close", () => resolve());
       proc.on("error", () => resolve());
