@@ -483,13 +483,14 @@ Your note content goes here.
 `;
       await this.app.vault.adapter.write("templates/note.md", noteTemplate);
 
-      // Create leafpress.json with default nav
+      // Create leafpress.json with default nav and ignore patterns
       const config: any = {
         title: this.title,
         nav: [
           { label: "Notes", path: "/notes" },
           { label: "Tags", path: "/tags" }
-        ]
+        ],
+        ignore: ["templates"]
       };
       if (this.author) config.author = this.author;
       if (this.baseURL) config.baseURL = this.baseURL;
