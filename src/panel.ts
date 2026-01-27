@@ -165,7 +165,7 @@ export class LeafpressPanel extends ItemView {
         try {
           if (serverRunning) {
             await this.stopServer();
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await this.waitForServerStopped(5000); // Wait up to 5 seconds for port to free
           } else {
             await this.startServer();
             await this.waitForServerReady(10000); // Wait up to 10 seconds
@@ -380,6 +380,23 @@ export class LeafpressPanel extends ItemView {
         const isReady = await this.isServerRunning();
         const elapsed = Date.now() - startTime;
         if (isReady || elapsed > timeoutMs) {
+          clearInterval(checkInterval);
+          const idx = this.activeIntervals.indexOf(checkInterval);
+          if (idx > -1) this.activeIntervals.splice(idx, 1);
+          resolve();
+        }
+      }, 200);
+      this.activeIntervals.push(checkInterval);
+    });
+  }
+
+  private waitForServerStopped(timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const checkInterval = setInterval(async () => {
+        const isRunning = await this.isServerRunning();
+        const elapsed = Date.now() - startTime;
+        if (!isRunning || elapsed > timeoutMs) {
           clearInterval(checkInterval);
           const idx = this.activeIntervals.indexOf(checkInterval);
           if (idx > -1) this.activeIntervals.splice(idx, 1);
