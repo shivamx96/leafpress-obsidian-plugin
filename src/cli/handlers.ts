@@ -144,6 +144,14 @@ class DeploymentResultModal extends Modal {
     this.vaultPath = adapter.basePath || adapter.path || "";
   }
 
+  private getDeployCommand(): string {
+    const isWindows = process.platform === "win32";
+    if (isWindows) {
+      return `cd "${this.vaultPath}" && .\\.obsidian\\plugins\\leafpress\\bin\\leafpress.exe deploy`;
+    }
+    return `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+  }
+
   onOpen() {
     const { contentEl } = this;
 
@@ -203,7 +211,7 @@ class DeploymentResultModal extends Modal {
         const li1 = setupSteps.createEl("li");
         li1.appendText("Run in terminal: ");
         const code1 = li1.createEl("code");
-        code1.textContent = `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+        code1.textContent = this.getDeployCommand();
         li1.style.marginBottom = "4px";
 
         const li2 = setupSteps.createEl("li");
@@ -242,7 +250,7 @@ class DeploymentResultModal extends Modal {
         const li1 = tokenSteps.createEl("li");
         li1.appendText("Run in terminal: ");
         const code2 = li1.createEl("code");
-        code2.textContent = `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+        code2.textContent = this.getDeployCommand();
         li1.style.marginBottom = "4px";
 
         const li2 = tokenSteps.createEl("li");

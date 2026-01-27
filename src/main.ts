@@ -894,9 +894,17 @@ class DeploymentSetupModal extends Modal {
     this.vaultPath = adapter.basePath || adapter.path || "";
   }
 
+  private getDeployCommand(): string {
+    const isWindows = process.platform === "win32";
+    if (isWindows) {
+      return `cd "${this.vaultPath}" && .\\.obsidian\\plugins\\leafpress\\bin\\leafpress.exe deploy`;
+    }
+    return `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+  }
+
   onOpen() {
     const { contentEl } = this;
-    const fullCommand = `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+    const fullCommand = this.getDeployCommand();
 
     contentEl.createEl("h3", { text: "Deployment Setup" });
     contentEl.createEl("p", {
