@@ -286,6 +286,10 @@ class LeafpressSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Features").setHeading();
     this.displayFeatureToggles(containerEl);
 
+    // Ignored Directories
+    new Setting(containerEl).setName("Ignored Directories").setHeading();
+    this.displayIgnoredDirectories(containerEl);
+
     // Deployment
     new Setting(containerEl).setName("Deployment").setHeading();
     this.displayDeploymentSettings(containerEl);
@@ -788,6 +792,83 @@ class LeafpressSettingTab extends PluginSettingTab {
             // Config saved
           })
       );
+  }
+
+  private displayIgnoredDirectories(containerEl: HTMLElement): void {
+    const ignoredDirs = this.currentConfig?.ignore || [];
+
+    new Setting(containerEl)
+      .setDesc("Directories and files to exclude from the build (glob patterns supported)");
+
+    // Display current ignored directories
+    if (ignoredDirs.length === 0) {
+      new Setting(containerEl)
+        .setName("No ignored directories")
+        .setDesc("Add patterns to exclude files from your site");
+    } else {
+      ignoredDirs.forEach((pattern, index) => {
+        new Setting(containerEl)
+          .setName(pattern)
+          .addButton((btn) =>
+            btn
+              .setButtonText("Delete")
+              .setWarning()
+              .onClick(async () => {
+                await this.deleteIgnoredDirectory(index);
+              })
+          );
+      });
+    }
+
+    // Add new ignore pattern
+    new Setting(containerEl)
+      .setName("Add ignore pattern")
+      .setDesc("e.g., drafts/**, private/*, *.tmp")
+      .addText((text) => {
+        text.setPlaceholder("e.g., drafts/**");
+        text.inputEl.id = "leafpress-ignore-input";
+      })
+      .addButton((btn) =>
+        btn.setButtonText("Add").onClick(async () => {
+          const input = containerEl.querySelector("#leafpress-ignore-input") as HTMLInputElement;
+          const pattern = input?.value?.trim();
+          if (!pattern) {
+            new Notice("Please enter a pattern");
+            return;
+          }
+          await this.addIgnoredDirectory(pattern);
+          input.value = "";
+        })
+      );
+  }
+
+  private async addIgnoredDirectory(pattern: string): Promise<void> {
+    const config = this.currentConfig;
+    if (!config) return;
+
+    if (!config.ignore) {
+      config.ignore = [];
+    }
+
+    if (config.ignore.includes(pattern)) {
+      new Notice("Pattern already exists");
+      return;
+    }
+
+    config.ignore.push(pattern);
+    await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
+    new Notice("Ignore pattern added");
+    this.display();
+  }
+
+  private async deleteIgnoredDirectory(index: number): Promise<void> {
+    const config = this.currentConfig;
+    if (!config || !config.ignore) return;
+
+    config.ignore.splice(index, 1);
+    await (await import("./utils/config")).writeLeafpressConfig(this.app, config);
+    new Notice("Ignore pattern removed");
+    this.display();
   }
 }
 
