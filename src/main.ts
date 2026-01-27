@@ -713,7 +713,7 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Configure")
-      .setDesc("Run 'leafpress deploy' in terminal for initial setup")
+      .setDesc("Click Setup Guide for terminal command")
       .addButton((btn) =>
         btn.setButtonText("Setup Guide").onClick(async () => {
           new DeploymentSetupModal(this.app, this.currentConfig, async () => {
@@ -880,6 +880,7 @@ class TemplatePreviewModal extends Modal {
 
 class DeploymentSetupModal extends Modal {
   private onComplete: () => void;
+  private vaultPath: string;
 
   constructor(
     app: App,
@@ -888,15 +889,42 @@ class DeploymentSetupModal extends Modal {
   ) {
     super(app);
     this.onComplete = onComplete;
+    // Get vault path
+    const adapter = this.app.vault.adapter as any;
+    this.vaultPath = adapter.basePath || adapter.path || "";
   }
 
   onOpen() {
     const { contentEl } = this;
+    const fullCommand = `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+
     contentEl.createEl("h3", { text: "Deployment Setup" });
     contentEl.createEl("p", {
-      text: "Initial setup requires running a command in your terminal:",
+      text: "Initial setup requires running a command in your terminal. Copy and paste:",
     });
-    contentEl.createEl("code", { text: "leafpress deploy" });
+
+    const commandEl = contentEl.createEl("div");
+    commandEl.style.marginBottom = "12px";
+
+    const codeEl = commandEl.createEl("code", { text: fullCommand });
+    codeEl.style.display = "block";
+    codeEl.style.padding = "12px";
+    codeEl.style.backgroundColor = "var(--background-secondary)";
+    codeEl.style.borderRadius = "4px";
+    codeEl.style.userSelect = "all";
+    codeEl.style.wordBreak = "break-all";
+    codeEl.style.fontSize = "0.85em";
+    codeEl.style.marginBottom = "8px";
+
+    const copyBtn = commandEl.createEl("button", { text: "Copy Command" });
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(fullCommand);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy Command";
+      }, 2000);
+    });
+
     contentEl.createEl("p", {
       text: "This will guide you through authentication and save your configuration.",
     });

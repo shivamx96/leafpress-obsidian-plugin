@@ -135,10 +135,13 @@ export class CommandHandlers {
 
 class DeploymentResultModal extends Modal {
   private result: any;
+  private vaultPath: string;
 
   constructor(app: App, result: any) {
     super(app);
     this.result = result;
+    const adapter = this.app.vault.adapter as any;
+    this.vaultPath = adapter.basePath || adapter.path || "";
   }
 
   onOpen() {
@@ -198,7 +201,9 @@ class DeploymentResultModal extends Modal {
         setupSteps.style.paddingLeft = "20px";
 
         const li1 = setupSteps.createEl("li");
-        li1.textContent = 'Run "leafpress deploy" in a terminal within your vault';
+        li1.appendText("Run in terminal: ");
+        const code1 = li1.createEl("code");
+        code1.textContent = `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
         li1.style.marginBottom = "4px";
 
         const li2 = setupSteps.createEl("li");
@@ -235,8 +240,9 @@ class DeploymentResultModal extends Modal {
         tokenSteps.style.paddingLeft = "20px";
 
         const li1 = tokenSteps.createEl("li");
-        li1.textContent =
-          'Run "leafpress deploy" in terminal to set up or re-authenticate';
+        li1.appendText("Run in terminal: ");
+        const code2 = li1.createEl("code");
+        code2.textContent = `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
         li1.style.marginBottom = "4px";
 
         const li2 = tokenSteps.createEl("li");
