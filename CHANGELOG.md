@@ -1,3 +1,13 @@
+### v0.1.3
+
+**Features**
+- Ignored directories: Configure patterns to exclude files/folders from build (glob supported)
+- Default ignore: `templates` directory now excluded by default on site initialization
+
+**Fixes**
+- Windows port detection: Filter netstat for LISTENING state only to avoid false positives
+- Windows server stop: Improved taskkill reliability by targeting only listening sockets
+
 ### v0.1.2
 
 **Improvements**
