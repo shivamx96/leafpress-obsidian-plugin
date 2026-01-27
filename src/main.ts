@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, App, Setting, Notice, Modal } from "obsidian";
+import { Plugin, PluginSettingTab, App, Setting, Notice, Modal, TFolder } from "obsidian";
 import { BinaryManager } from "./cli/manager";
 import { CommandHandlers } from "./cli/handlers";
 import { LeafpressPanel, VIEW_TYPE_LEAFPRESS } from "./panel";
@@ -815,6 +815,25 @@ class NavItemModal extends Modal {
     this.onSubmit = onSubmit;
   }
 
+  private getFolderPaths(): string[] {
+    const folders: string[] = ["/"];
+    const skipFolders = new Set([".obsidian", "_site", ".git", "node_modules", ".leafpress"]);
+
+    // Get all folders from vault
+    const allFiles = this.app.vault.getAllLoadedFiles();
+    for (const file of allFiles) {
+      if (file instanceof TFolder) {
+        const folderPath = file.path;
+        const topLevel = folderPath.split("/")[0];
+        if (!skipFolders.has(topLevel) && !folderPath.startsWith(".")) {
+          folders.push("/" + folderPath);
+        }
+      }
+    }
+
+    return folders.sort();
+  }
+
   onOpen() {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: this.title });
@@ -832,6 +851,13 @@ class NavItemModal extends Modal {
         setTimeout(() => text.inputEl.focus(), 10);
       });
 
+    // Create datalist for path autocomplete
+    const datalistId = "leafpress-path-suggestions";
+    const datalist = contentEl.createEl("datalist", { attr: { id: datalistId } });
+    for (const folderPath of this.getFolderPaths()) {
+      datalist.createEl("option", { attr: { value: folderPath } });
+    }
+
     new Setting(contentEl)
       .setName("Path")
       .setDesc("URL path (e.g., /notes or /tags)")
@@ -842,6 +868,7 @@ class NavItemModal extends Modal {
           .onChange((value) => {
             this.pathValue = value;
           });
+        text.inputEl.setAttribute("list", datalistId);
       });
 
     new Setting(contentEl)
