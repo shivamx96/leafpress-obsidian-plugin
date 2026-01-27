@@ -405,7 +405,6 @@ export class LeafpressPanel extends ItemView {
       try {
         stateContent = await this.app.vault.adapter.read(stateFilePath);
       } catch (err) {
-        console.log("[leafpress] Deployment state file not found:", err);
         return null;
       }
 
@@ -420,7 +419,6 @@ export class LeafpressPanel extends ItemView {
       const lastDeploy = deployState.lastDeploy;
 
       if (!lastDeploy) {
-        console.log("[leafpress] No lastDeploy found in deployment state");
         return null;
       }
 
@@ -498,7 +496,7 @@ export class LeafpressPanel extends ItemView {
           }
         }
       } catch (err) {
-        console.log("[leafpress] Could not scan source files:", err);
+        // Could not scan source files
       }
 
       return {
@@ -589,7 +587,7 @@ export class LeafpressPanel extends ItemView {
         const hash = this.sha1Hash(content);
         files[`/${filePath}`] = hash;
       } catch (err) {
-        console.log(`[leafpress] Error reading file ${filePath}:`, err);
+        // Error reading file
       }
     }
 
@@ -634,13 +632,13 @@ export class LeafpressPanel extends ItemView {
             }
           }
         } catch (err) {
-          console.log(`[leafpress] Error reading directory ${currentDir}:`, err);
+          // Error reading directory
         }
       };
 
       await walkDir(dir);
     } catch (err) {
-      console.log("[leafpress] Error walking directory:", err);
+      // Error walking directory
     }
 
     return files;

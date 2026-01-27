@@ -39,7 +39,6 @@ export class BinaryManager {
         throw new Error('Could not determine vault path');
       }
 
-      console.log('[leafpress] Vault path:', this.vaultPath);
       return this.vaultPath;
     } catch (err) {
       console.error('[leafpress] Error getting vault path:', err);
@@ -105,7 +104,6 @@ export class BinaryManager {
       // Validate custom binary path exists
       try {
         await fs.access(binaryPath);
-        console.log('[leafpress] Custom binary found at:', binaryPath);
       } catch {
         throw new Error(`Custom binary not found at: ${binaryPath}`);
       }
@@ -114,9 +112,7 @@ export class BinaryManager {
 
     try {
       await fs.access(binaryPath);
-      console.log('[leafpress] Binary found at:', binaryPath);
     } catch {
-      console.log('[leafpress] Binary not found, downloading...');
       await this.downloadBinary();
     }
   }
@@ -153,7 +149,6 @@ export class BinaryManager {
       await fs.mkdir(binDir, { recursive: true });
 
       // Download archive using Obsidian's requestUrl
-      console.log('[leafpress] Downloading', asset.name, 'from', asset.browser_download_url);
       const archiveResponse = await requestUrl({
         url: asset.browser_download_url,
         headers: {
@@ -191,7 +186,6 @@ export class BinaryManager {
         // Ignore cleanup errors
       }
 
-      console.log('[leafpress] Binary downloaded and extracted successfully');
       new Notice(`✓ leafpress CLI downloaded successfully`);
     } catch (err) {
       const message = `Failed to download leafpress binary: ${err}`;
@@ -280,7 +274,6 @@ export class BinaryManager {
     );
 
     if (!checksumAsset) {
-      console.log("[leafpress] No checksums file found in release, skipping verification");
       return null;
     }
 
@@ -292,7 +285,6 @@ export class BinaryManager {
       });
 
       if (checksumResponse.status !== 200) {
-        console.warn("[leafpress] Failed to download checksums file");
         return null;
       }
 
@@ -310,7 +302,6 @@ export class BinaryManager {
       }
 
       if (!expectedHash) {
-        console.warn(`[leafpress] No checksum found for ${assetName}`);
         return null;
       }
 
@@ -321,17 +312,13 @@ export class BinaryManager {
         .digest("hex")
         .toLowerCase();
 
-      console.log(`[leafpress] Checksum verification: expected=${expectedHash}, actual=${actualHash}`);
-
       if (actualHash !== expectedHash) {
         console.error("[leafpress] Checksum mismatch!");
         return false;
       }
 
-      console.log("[leafpress] Checksum verified successfully");
       return true;
     } catch (err) {
-      console.warn("[leafpress] Error verifying checksum:", err);
       return null;
     }
   }
@@ -365,7 +352,7 @@ export class BinaryManager {
           currentVersion = match ? match[1] : "0.0.0";
         }
       } catch (err) {
-        console.log("[leafpress] Could not determine current version");
+        // Could not determine current version
       }
 
       const hasUpdate = this.compareVersions(currentVersion, latestVersion) < 0;
@@ -395,9 +382,8 @@ export class BinaryManager {
       const backupPath = binaryPath + ".backup";
       try {
         await fs.copyFile(binaryPath, backupPath);
-        console.log("[leafpress] Backed up current binary to:", backupPath);
       } catch (err) {
-        console.log("[leafpress] Could not backup binary:", err);
+        // Could not backup binary
       }
 
       // Download and install new version
@@ -407,7 +393,7 @@ export class BinaryManager {
       try {
         await fs.unlink(backupPath);
       } catch (err) {
-        console.log("[leafpress] Could not remove backup:", err);
+        // Could not remove backup
       }
 
       new Notice("✓ leafpress CLI updated successfully");

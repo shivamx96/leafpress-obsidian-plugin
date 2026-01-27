@@ -47,8 +47,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-initialize",
       name: "Initialize Site",
       callback: async () => {
-        console.log("[leafpress] Initialize command triggered");
-        await this.commandHandlers.initialize();
+                await this.commandHandlers.initialize();
       },
     });
 
@@ -56,8 +55,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-build",
       name: "Build Site",
       callback: async () => {
-        console.log("[leafpress] Build command triggered");
-        await this.commandHandlers.build();
+                await this.commandHandlers.build();
       },
     });
 
@@ -65,8 +63,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-preview",
       name: "Preview Site",
       callback: async () => {
-        console.log("[leafpress] Preview command triggered");
-        await this.commandHandlers.preview();
+                await this.commandHandlers.preview();
       },
     });
 
@@ -74,8 +71,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-deploy",
       name: "Deploy",
       callback: async () => {
-        console.log("[leafpress] Deploy command triggered");
-        await this.commandHandlers.deploy();
+                await this.commandHandlers.deploy();
       },
     });
 
@@ -83,8 +79,7 @@ export default class LeafpressPlugin extends Plugin {
       id: "leafpress-settings",
       name: "Open Settings",
       callback: () => {
-        console.log("[leafpress] Settings command triggered");
-        this.openSettings();
+                this.openSettings();
       },
     });
 
@@ -106,8 +101,7 @@ export default class LeafpressPlugin extends Plugin {
     // Register settings tab
     this.addSettingTab(new LeafpressSettingTab(this.app, this));
 
-    console.log("leafpress plugin loaded");
-
+    
     // Initialize panel on startup (deferred)
     if (this.app.workspace.layoutReady) {
       this.activateView();
@@ -117,8 +111,7 @@ export default class LeafpressPlugin extends Plugin {
   }
 
   onunload() {
-    console.log("leafpress plugin unloaded");
-  }
+      }
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());

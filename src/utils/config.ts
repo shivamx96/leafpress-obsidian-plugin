@@ -9,7 +9,6 @@ export async function readLeafpressConfig(
     const config: LeafpressConfig = JSON.parse(configText);
     return config;
   } catch (err) {
-    console.log("[leafpress] No config found or parse error:", err);
     return null;
   }
 }

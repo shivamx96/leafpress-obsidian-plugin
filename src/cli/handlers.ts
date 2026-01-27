@@ -31,9 +31,7 @@ export class CommandHandlers {
 
   async build(): Promise<void> {
     try {
-      console.log("[leafpress] Build handler started");
       new Notice("Preparing...");
-      console.log("[leafpress] Ensuring binary exists...");
       await this.binaryManager.ensureBinary();
       new Notice("Building your site...");
 
