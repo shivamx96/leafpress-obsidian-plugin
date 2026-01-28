@@ -1,24 +1,43 @@
 import { App, Notice, Modal } from "obsidian";
 import { BinaryManager } from "./manager";
-import { CLIResult } from "./types";
 import { openInBrowser, isPortInUse } from "../utils/platform";
+
+interface DeploymentSuccess {
+  success: true;
+  url: string;
+  output: string;
+}
+
+interface DeploymentError {
+  success: false;
+  error: string;
+  output: string;
+  isNonInteractiveError: boolean;
+  isMissingTokenError: boolean;
+}
+
+type DeploymentResult = DeploymentSuccess | DeploymentError;
+
+interface FileSystemAdapter {
+  basePath?: string;
+  path?: string;
+  mkdir(path: string): Promise<void>;
+}
 
 export class CommandHandlers {
   private app: App;
   private binaryManager: BinaryManager;
-  private plugin: any;
 
-  constructor(app: App, binaryManager: BinaryManager, plugin: any) {
+  constructor(app: App, binaryManager: BinaryManager, _plugin: unknown) {
     this.app = app;
     this.binaryManager = binaryManager;
-    this.plugin = plugin;
   }
 
   async initialize(): Promise<void> {
     try {
       const stat = await this.app.vault.adapter.stat("leafpress.json");
       if (stat) {
-        new Notice("leafpress.json already exists");
+        new Notice("Configuration file already exists");
         return;
       }
     } catch {
@@ -38,13 +57,13 @@ export class CommandHandlers {
       const result = await this.binaryManager.execCommand(["build"]);
 
       if (result.success) {
-        new Notice("✓ Build successful!");
+        new Notice("Build successful");
       } else {
-        new Notice("✗ Build failed. Check console for details.");
+        new Notice("Build failed. Check console for details.");
         console.error(result.stderr);
       }
     } catch (err) {
-      new Notice(`✗ Error: ${err}`);
+      new Notice(`Error: ${String(err)}`);
       console.error(err);
     }
   }
@@ -57,22 +76,22 @@ export class CommandHandlers {
       if (serverRunning) {
         // Server is already running, just open it
         openInBrowser("http://localhost:3000");
-        new Notice("✓ Preview opened at http://localhost:3000");
+        new Notice("Preview opened in browser");
       } else {
         // Server not running, start it
         new Notice("Preparing...");
         await this.binaryManager.ensureBinary();
         new Notice("Starting preview server...");
-        this.binaryManager.execCommand(["serve"]);
+        void this.binaryManager.execCommand(["serve"]);
 
         // Give server a moment to start, then open browser
         setTimeout(() => {
           openInBrowser("http://localhost:3000");
-          new Notice("✓ Preview server started at http://localhost:3000");
+          new Notice("Preview server started");
         }, 2000);
       }
     } catch (err) {
-      new Notice(`✗ Error: ${err}`);
+      new Notice(`Error: ${String(err)}`);
       console.error(err);
     }
   }
@@ -97,14 +116,14 @@ export class CommandHandlers {
         const urlMatch = result.stdout.match(/https?:\/\/[^\s]+/);
         const url = urlMatch ? urlMatch[0] : "Deployment successful";
 
-        const deployResult: any = {
+        const deployResult: DeploymentSuccess = {
           url,
           success: true,
           output: result.stdout,
         };
 
         new Notice(
-          `✓ ${reconfigure ? "Configuration complete" : "Deployed"}: ${url}`
+          `${reconfigure ? "Configuration complete" : "Deployed"}: ${url}`
         );
         new DeploymentResultModal(this.app, deployResult).open();
       } else {
@@ -117,7 +136,7 @@ export class CommandHandlers {
           result.stderr.includes("token") ||
           result.stderr.includes("authentication");
 
-        const errorResult: any = {
+        const errorResult: DeploymentError = {
           success: false,
           error: result.stderr,
           output: result.stdout,
@@ -127,178 +146,152 @@ export class CommandHandlers {
         new DeploymentResultModal(this.app, errorResult).open();
       }
     } catch (err) {
-      new Notice(`✗ Error: ${err}`);
+      new Notice(`Error: ${String(err)}`);
       console.error(err);
     }
   }
 }
 
 class DeploymentResultModal extends Modal {
-  private result: any;
+  private result: DeploymentResult;
   private vaultPath: string;
 
-  constructor(app: App, result: any) {
+  constructor(app: App, result: DeploymentResult) {
     super(app);
     this.result = result;
-    const adapter = this.app.vault.adapter as any;
-    this.vaultPath = adapter.basePath || adapter.path || "";
+    const adapter = this.app.vault.adapter as FileSystemAdapter;
+    this.vaultPath = adapter.basePath ?? adapter.path ?? "";
   }
 
   private getDeployCommand(): string {
+    const configDir = this.app.vault.configDir;
     const isWindows = process.platform === "win32";
     if (isWindows) {
-      return `cd "${this.vaultPath}" && .\\.obsidian\\plugins\\leafpress\\bin\\leafpress.exe deploy`;
+      return `cd "${this.vaultPath}" && .\\${configDir}\\plugins\\leafpress\\bin\\leafpress.exe deploy`;
     }
-    return `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+    return `cd "${this.vaultPath}" && ./${configDir}/plugins/leafpress/bin/leafpress deploy`;
   }
 
-  onOpen() {
+  onOpen(): void {
     const { contentEl } = this;
+    const result = this.result;
 
-    if (this.result.success) {
-      contentEl.createEl("h2", { text: "✓ Deployment Complete" });
+    if (result.success) {
+      contentEl.createEl("h2", { text: "Deployment complete" });
 
       const urlEl = contentEl.createEl("div", {
         cls: "deployment-result-section",
       });
       urlEl.createEl("strong", { text: "Site URL:" });
       const link = urlEl.createEl("a", {
-        text: this.result.url,
-        href: this.result.url,
+        text: result.url,
+        href: result.url,
+        cls: "leafpress-link",
       });
-      link.style.color = "var(--text-link, #7c3aed)";
-      link.style.display = "block";
-      link.style.marginTop = "8px";
       link.addEventListener("click", (e) => {
         e.preventDefault();
-        window.open(this.result.url);
+        window.open(result.url);
       });
 
-      if (this.result.output) {
+      if (result.output) {
         const outputEl = contentEl.createEl("div", {
           cls: "deployment-result-section",
         });
         outputEl.createEl("strong", { text: "Output:" });
-        const preEl = outputEl.createEl("pre");
-        preEl.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-        preEl.style.padding = "12px";
-        preEl.style.borderRadius = "4px";
-        preEl.style.overflow = "auto";
-        preEl.style.maxHeight = "300px";
-        preEl.style.fontSize = "0.85rem";
-        preEl.style.marginTop = "8px";
-        preEl.textContent = this.result.output;
+        const preEl = outputEl.createEl("pre", { cls: "leafpress-pre" });
+        preEl.textContent = result.output;
       }
-    } else {
-      contentEl.createEl("h2", { text: "✗ Deployment Failed" });
+      return;
+    }
 
-      // Special handling for non-interactive mode errors
-      if (this.result.isNonInteractiveError) {
+    // Error case - result is DeploymentError (narrowed by the return above)
+    const errorResult = result as DeploymentError;
+    contentEl.createEl("h2", { text: "Deployment failed" });
+
+    // Special handling for non-interactive mode errors
+    if (errorResult.isNonInteractiveError) {
         const instructionsEl = contentEl.createEl("div", {
-          cls: "deployment-setup-instructions",
+          cls: "leafpress-warning-box",
         });
-        instructionsEl.style.backgroundColor = "#fff3cd";
-        instructionsEl.style.border = "1px solid #ffc107";
-        instructionsEl.style.borderRadius = "4px";
-        instructionsEl.style.padding = "12px";
-        instructionsEl.style.marginBottom = "12px";
 
-        instructionsEl.createEl("strong", { text: "Setup Required" });
-        const setupSteps = instructionsEl.createEl("ol");
-        setupSteps.style.margin = "8px 0";
-        setupSteps.style.paddingLeft = "20px";
+        instructionsEl.createEl("strong", { text: "Setup required" });
+        const setupSteps = instructionsEl.createEl("ol", { cls: "leafpress-steps" });
 
         const li1 = setupSteps.createEl("li");
         li1.appendText("Run in terminal: ");
         const code1 = li1.createEl("code");
         code1.textContent = this.getDeployCommand();
-        li1.style.marginBottom = "4px";
 
         const li2 = setupSteps.createEl("li");
         li2.textContent =
           "Complete the authentication/configuration in the interactive prompt";
-        li2.style.marginBottom = "4px";
 
         const li3 = setupSteps.createEl("li");
         li3.textContent =
-          "After setup, you can deploy from the plugin using Deploy Now";
+          "After setup, you can deploy from the plugin";
 
-        const docsEl = instructionsEl.createEl("p");
-        docsEl.style.margin = "8px 0 0 0";
-        docsEl.style.fontSize = "0.9rem";
+        const docsEl = instructionsEl.createEl("p", { cls: "leafpress-info-text" });
         docsEl.createEl("strong", { text: "Why?" });
         docsEl.appendChild(
           document.createTextNode(
             " Initial setup requires browser authentication or token entry, which needs an interactive terminal."
           )
         );
-      } else if (this.result.isMissingTokenError) {
-        const tokenEl = contentEl.createEl("div", {
-          cls: "deployment-setup-instructions",
-        });
-        tokenEl.style.backgroundColor = "#fff3cd";
-        tokenEl.style.border = "1px solid #ffc107";
-        tokenEl.style.borderRadius = "4px";
-        tokenEl.style.padding = "12px";
-        tokenEl.style.marginBottom = "12px";
+    } else if (errorResult.isMissingTokenError) {
+      const tokenEl = contentEl.createEl("div", {
+        cls: "leafpress-warning-box",
+      });
 
-        tokenEl.createEl("strong", { text: "Authentication Required" });
-        const tokenSteps = tokenEl.createEl("ol");
-        tokenSteps.style.margin = "8px 0";
-        tokenSteps.style.paddingLeft = "20px";
+      tokenEl.createEl("strong", { text: "Authentication required" });
+      const tokenSteps = tokenEl.createEl("ol", { cls: "leafpress-steps" });
 
-        const li1 = tokenSteps.createEl("li");
-        li1.appendText("Run in terminal: ");
-        const code2 = li1.createEl("code");
-        code2.textContent = this.getDeployCommand();
-        li1.style.marginBottom = "4px";
+      const li1 = tokenSteps.createEl("li");
+      li1.appendText("Run in terminal: ");
+      const code2 = li1.createEl("code");
+      code2.textContent = this.getDeployCommand();
 
-        const li2 = tokenSteps.createEl("li");
-        li2.textContent = "Complete the provider setup (OAuth or token entry)";
-        li2.style.marginBottom = "4px";
+      const li2 = tokenSteps.createEl("li");
+      li2.textContent = "Complete the provider authentication setup";
 
-        const li3 = tokenSteps.createEl("li");
-        li3.textContent = "Then deploy again from the Obsidian plugin";
+      const li3 = tokenSteps.createEl("li");
+      li3.textContent = "Then deploy again from the Obsidian plugin";
 
-        const infoEl = tokenEl.createEl("p");
-        infoEl.style.margin = "8px 0 0 0";
-        infoEl.style.fontSize = "0.9rem";
-        infoEl.createEl("strong", { text: "Note:" });
-        infoEl.appendChild(
-          document.createTextNode(
-            " Tokens and deployment config must be set up interactively first."
-          )
-        );
-      } else if (this.result.error) {
-        const errorEl = contentEl.createEl("div", {
-          cls: "deployment-result-section",
-        });
-        errorEl.createEl("strong", { text: "Error:" });
-        const preEl = errorEl.createEl("pre");
-        preEl.style.backgroundColor = "#ffe0e0";
-        preEl.style.color = "#cc3333";
-        preEl.style.padding = "12px";
-        preEl.style.borderRadius = "4px";
-        preEl.style.overflow = "auto";
-        preEl.style.maxHeight = "300px";
-        preEl.style.fontSize = "0.85rem";
-        preEl.style.marginTop = "8px";
-        preEl.textContent = this.result.error;
-      }
-
-      const infoEl = contentEl.createEl("p");
-      infoEl.style.marginTop = "12px";
-      infoEl.style.fontSize = "0.9rem";
-      infoEl.style.color = "var(--text-muted, #999)";
-      infoEl.textContent = this.result.isNonInteractiveError
-        ? "Check the console for more details on deployment output."
-        : "Check the console for more details. Ensure deployment is configured correctly.";
+      const infoEl = tokenEl.createEl("p", { cls: "leafpress-info-text" });
+      infoEl.createEl("strong", { text: "Note:" });
+      infoEl.appendChild(
+        document.createTextNode(
+          " Tokens and deployment config must be set up interactively first."
+        )
+      );
+    } else if (errorResult.error) {
+      const errorEl = contentEl.createEl("div", {
+        cls: "deployment-result-section",
+      });
+      errorEl.createEl("strong", { text: "Error:" });
+      const preEl = errorEl.createEl("pre", { cls: "leafpress-pre-error" });
+      preEl.textContent = String(errorResult.error);
     }
 
-    const closeBtn = contentEl.createEl("button", { text: "Close" });
-    closeBtn.style.marginTop = "16px";
+    const infoEl = contentEl.createEl("p", { cls: "leafpress-muted-text" });
+    infoEl.textContent = errorResult.isNonInteractiveError
+      ? "Check the console for more details on deployment output."
+      : "Check the console for more details. Ensure deployment is configured correctly.";
+
+    const closeBtn = contentEl.createEl("button", {
+      text: "Close",
+      cls: "leafpress-btn-mt",
+    });
     closeBtn.addEventListener("click", () => this.close());
   }
+}
+
+interface LeafpressInitConfig {
+  title: string;
+  nav: Array<{ label: string; path: string }>;
+  ignore: string[];
+  author?: string;
+  baseURL?: string;
+  description?: string;
 }
 
 class InitializeModal extends Modal {
@@ -311,89 +304,91 @@ class InitializeModal extends Modal {
     super(app);
   }
 
-  onOpen() {
+  onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Initialize leafpress Site" });
+    contentEl.createEl("h2", { text: "Initialize site" });
 
     const form = contentEl.createEl("form");
 
     // Title field
-    const titleLabel = form.createEl("label", { text: "Site Title (required)" });
-    titleLabel.style.display = "block";
-    titleLabel.style.marginBottom = "10px";
-    const titleInput = form.createEl("input", {
+    const titleLabel = form.createEl("label", {
+      text: "Site title (required)",
+      cls: "leafpress-form-label",
+    });
+    const titleInput = titleLabel.createEl("input", {
       attr: {
         type: "text",
-        placeholder: "My Digital Garden"
-      }
+        placeholder: "My digital garden",
+      },
+      cls: "leafpress-form-input",
     });
-    titleInput.style.width = "100%";
-    titleInput.style.marginBottom = "15px";
     titleInput.addEventListener("input", (e) => {
       this.title = (e.target as HTMLInputElement).value;
     });
 
     // Author field
-    const authorLabel = form.createEl("label", { text: "Author (optional)" });
-    authorLabel.style.display = "block";
-    authorLabel.style.marginBottom = "10px";
-    const authorInput = form.createEl("input", {
+    const authorLabel = form.createEl("label", {
+      text: "Author (optional)",
+      cls: "leafpress-form-label",
+    });
+    const authorInput = authorLabel.createEl("input", {
       attr: {
         type: "text",
-        placeholder: "Your Name"
-      }
+        placeholder: "Your name",
+      },
+      cls: "leafpress-form-input",
     });
-    authorInput.style.width = "100%";
-    authorInput.style.marginBottom = "15px";
     authorInput.addEventListener("input", (e) => {
       this.author = (e.target as HTMLInputElement).value;
     });
 
     // Base URL field
-    const baseURLLabel = form.createEl("label", { text: "Base URL (optional)" });
-    baseURLLabel.style.display = "block";
-    baseURLLabel.style.marginBottom = "10px";
-    const baseURLInput = form.createEl("input", {
+    const baseURLLabel = form.createEl("label", {
+      text: "Base URL (optional)",
+      cls: "leafpress-form-label",
+    });
+    const baseURLInput = baseURLLabel.createEl("input", {
       attr: {
         type: "url",
-        placeholder: "https://example.com"
-      }
+        placeholder: "https://example.com",
+      },
+      cls: "leafpress-form-input",
     });
-    baseURLInput.style.width = "100%";
-    baseURLInput.style.marginBottom = "15px";
     baseURLInput.addEventListener("input", (e) => {
       this.baseURL = (e.target as HTMLInputElement).value;
     });
 
     // Description field
-    const descLabel = form.createEl("label", { text: "Description (optional)" });
-    descLabel.style.display = "block";
-    descLabel.style.marginBottom = "10px";
-    const descInput = form.createEl("textarea", {
-      attr: {
-        placeholder: "A collection of my thoughts"
-      }
+    const descLabel = form.createEl("label", {
+      text: "Description (optional)",
+      cls: "leafpress-form-label",
     });
-    descInput.style.width = "100%";
-    descInput.style.marginBottom = "15px";
+    const descInput = descLabel.createEl("textarea", {
+      attr: {
+        placeholder: "A collection of my thoughts",
+      },
+      cls: "leafpress-form-input",
+    });
     descInput.addEventListener("input", (e) => {
       this.description = (e.target as HTMLTextAreaElement).value;
     });
 
     // Buttons
-    const buttonContainer = contentEl.createEl("div");
-    buttonContainer.style.display = "flex";
-    buttonContainer.style.gap = "10px";
-    buttonContainer.style.justifyContent = "flex-end";
+    const buttonContainer = contentEl.createEl("div", {
+      cls: "leafpress-btn-container",
+    });
 
     const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" });
     cancelBtn.addEventListener("click", () => this.close());
 
     const submitBtn = buttonContainer.createEl("button", { text: "Initialize" });
-    submitBtn.addEventListener("click", () => this.submit());
+    submitBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      void this.submit();
+    });
   }
 
-  private async submit() {
+  private async submit(): Promise<void> {
     if (!this.title.trim()) {
       new Notice("Site title is required");
       return;
@@ -403,22 +398,19 @@ class InitializeModal extends Modal {
       new Notice("Initializing site...");
 
       // Create directories (use relative paths for vault adapter)
-      const notesDir = "notes";
-      const staticDir = "static/images";
-      const templatesDir = "templates";
-
-      await (this.app.vault.adapter as any).mkdir(notesDir);
-      await (this.app.vault.adapter as any).mkdir(staticDir);
-      await (this.app.vault.adapter as any).mkdir(templatesDir);
+      const adapter = this.app.vault.adapter as FileSystemAdapter;
+      await adapter.mkdir("notes");
+      await adapter.mkdir("static/images");
+      await adapter.mkdir("templates");
 
       // Create index.md with getting started instructions
       const indexContent = `# ${this.title}
 
 Welcome to your digital garden. This is your homepage.
 
-## Getting Started
+## Getting started
 
-### 1. Create Your First Note
+### 1. Create your first note
 
 - Navigate to the **notes** folder
 - Use the **note template** (Obsidian Templates plugin) to create new notes
@@ -430,7 +422,7 @@ Welcome to your digital garden. This is your homepage.
   - \`growth\` - Growth stage: seedling, budding, or evergreen
   - \`draft\` - Set to \`false\` to publish
 
-### 2. Configure Your Site
+### 2. Configure your site
 
 Open the **leafpress** settings panel to:
 - Customize theme (fonts, colors, backgrounds)
@@ -438,13 +430,13 @@ Open the **leafpress** settings panel to:
 - Manage navigation menu items
 - Enable/disable features (graph, search, TOC, wiki links, backlinks)
 
-### 3. Build & Deploy
+### 3. Build & deploy
 
-- **Build Site** - Compiles all notes to static HTML
-- **Preview Site** - Start a local dev server at http://localhost:3000
+- **Build site** - Compiles all notes to static HTML
+- **Preview site** - Start a local dev server at http://localhost:3000
 - **Deploy** - Push your site to hosting (GitHub Pages, Vercel, etc.)
 
-## File Structure
+## File structure
 
 \`\`\`
 .
@@ -464,7 +456,7 @@ Open the **leafpress** settings panel to:
 - Use **tags** to organize and discover related content
 - Mark notes as **draft: true** to work in progress without publishing
 
-Happy writing! 🌱
+Happy writing!
 `;
       await this.app.vault.adapter.write("index.md", indexContent);
 
@@ -484,24 +476,27 @@ Your note content goes here.
       await this.app.vault.adapter.write("templates/note.md", noteTemplate);
 
       // Create leafpress.json with default nav and ignore patterns
-      const config: any = {
+      const config: LeafpressInitConfig = {
         title: this.title,
         nav: [
           { label: "Notes", path: "/notes" },
-          { label: "Tags", path: "/tags" }
+          { label: "Tags", path: "/tags" },
         ],
-        ignore: ["templates"]
+        ignore: ["templates"],
       };
       if (this.author) config.author = this.author;
       if (this.baseURL) config.baseURL = this.baseURL;
       if (this.description) config.description = this.description;
 
-      await this.app.vault.adapter.write("leafpress.json", JSON.stringify(config, null, 2));
+      await this.app.vault.adapter.write(
+        "leafpress.json",
+        JSON.stringify(config, null, 2)
+      );
 
-      new Notice("✓ Site initialized successfully!");
+      new Notice("Site initialized successfully");
       this.close();
     } catch (err) {
-      new Notice(`✗ Failed to initialize site: ${err}`);
+      new Notice(`Failed to initialize site: ${String(err)}`);
       console.error(err);
     }
   }

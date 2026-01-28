@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
 import process from "process";
-import builtInModules from "builtin-modules";
+import { builtinModules } from "module";
 
 const banner =
 `/*
@@ -31,7 +31,7 @@ const buildConfig = {
     "@lezer/common",
     "@lezer/highlight",
     "@lezer/lr",
-    ...builtInModules,
+    ...builtinModules,
   ],
   format: "cjs",
   target: "ES6",

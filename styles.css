@@ -1,6 +1,203 @@
 /* Leafpress Plugin Styles */
 
-/* Pending Files - Used in sidebar panel */
+/* ========== Common Elements ========== */
+
+/* Link styles */
+.leafpress-link {
+  color: var(--text-accent);
+  display: block;
+  margin-top: 8px;
+}
+
+/* Pre/code block styles */
+.leafpress-pre {
+  background-color: var(--background-secondary);
+  padding: 12px;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 300px;
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+.leafpress-pre-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--text-error);
+  padding: 12px;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 300px;
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+/* Warning/info boxes */
+.leafpress-warning-box {
+  background-color: rgba(251, 191, 36, 0.15);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+/* Ordered list styles */
+.leafpress-steps {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.leafpress-steps li {
+  margin-bottom: 4px;
+}
+
+/* Info/helper text */
+.leafpress-info-text {
+  margin: 8px 0 0 0;
+  font-size: 0.9rem;
+}
+
+.leafpress-muted-text {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* ========== Button Styles ========== */
+
+.leafpress-btn-container {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.leafpress-btn-mt {
+  margin-top: 16px;
+}
+
+/* ========== Form Styles ========== */
+
+.leafpress-form-label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.leafpress-form-input {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+/* ========== Modal Styles ========== */
+
+.leafpress-code-block {
+  display: block;
+  padding: 12px;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  user-select: all;
+  word-break: break-all;
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+
+/* ========== Panel Styles ========== */
+
+.leafpress-panel-section {
+  margin-bottom: 16px;
+}
+
+.leafpress-panel-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-normal);
+}
+
+.leafpress-panel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.leafpress-panel-label {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.leafpress-panel-value {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+.leafpress-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.leafpress-status-dot.running {
+  background-color: var(--text-success);
+}
+
+.leafpress-status-dot.stopped {
+  background-color: var(--text-error);
+}
+
+.leafpress-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.leafpress-changes-list {
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 0.85em;
+  padding: 8px;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.leafpress-change-item {
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leafpress-change-badge {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.leafpress-change-badge.added {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: var(--text-success);
+}
+
+.leafpress-change-badge.modified {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: var(--text-accent);
+}
+
+.leafpress-change-badge.deleted {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: var(--text-error);
+}
+
+.leafpress-empty-state {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* ========== Pending Files (Sidebar Panel) ========== */
+
 .leafpress-pending-files {
   background-color: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
@@ -28,4 +225,60 @@
   font-size: 0.8125rem;
   color: var(--text-normal);
   line-height: 1.4;
+}
+
+/* ========== Panel Content ========== */
+
+.leafpress-panel-content {
+  padding: 10px;
+}
+
+.leafpress-deploy-info {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.leafpress-warning-text {
+  color: var(--text-warning);
+}
+
+.leafpress-panel-buttons {
+  margin-top: 15px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.leafpress-panel-btn {
+  flex: 1;
+  min-width: 100px;
+}
+
+button.leafpress-deploy-btn {
+  flex: 1;
+  min-width: 100px;
+  background-color: var(--interactive-accent, #7c3aed);
+  color: white;
+}
+
+.leafpress-file-list {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.leafpress-file-item {
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.leafpress-more-files {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* ========== Settings Overrides ========== */
+
+.leafpress-wide-input {
+  width: 300px;
 }

@@ -6,12 +6,22 @@ import * as os from "os";
 import * as crypto from "crypto";
 import { CLIResult, GitHubRelease, GitHubAsset } from "./types";
 
+interface PluginSettings {
+  customBinaryPath: string;
+}
+
+interface FileSystemAdapter {
+  basePath?: string;
+  path?: string;
+  vault?: { dir?: string };
+}
+
 export class BinaryManager {
   private app: App;
   private customBinaryPath: string;
   private vaultPath: string | null = null;
 
-  constructor(app: App, settings: any) {
+  constructor(app: App, settings: PluginSettings) {
     this.app = app;
     this.customBinaryPath = settings.customBinaryPath;
   }
@@ -20,29 +30,30 @@ export class BinaryManager {
     if (this.vaultPath) return this.vaultPath;
 
     try {
-      const adapter = this.app.vault.adapter as any;
+      const adapter = this.app.vault.adapter as FileSystemAdapter;
 
       // Try different properties
-      if (adapter.basePath && typeof adapter.basePath === 'string') {
+      if (adapter.basePath && typeof adapter.basePath === "string") {
         this.vaultPath = adapter.basePath;
-      } else if (adapter.path && typeof adapter.path === 'string') {
+      } else if (adapter.path && typeof adapter.path === "string") {
         this.vaultPath = adapter.path;
-      } else if ((adapter as any).vault?.dir) {
-        this.vaultPath = (adapter as any).vault.dir;
+      } else if (adapter.vault?.dir) {
+        this.vaultPath = adapter.vault.dir;
       } else {
         // Fallback: construct from home + vault name
         const vaultName = this.app.vault.getName();
-        this.vaultPath = path.join(os.homedir(), '.obsidian/vaults', vaultName);
+        const configDir = this.app.vault.configDir;
+        this.vaultPath = path.join(os.homedir(), configDir, "vaults", vaultName);
       }
 
-      if (!this.vaultPath || typeof this.vaultPath !== 'string') {
-        throw new Error('Could not determine vault path');
+      if (!this.vaultPath || typeof this.vaultPath !== "string") {
+        throw new Error("Could not determine vault path");
       }
 
       return this.vaultPath;
     } catch (err) {
-      console.error('[leafpress] Error getting vault path:', err);
-      throw new Error('Failed to determine vault path');
+      console.error("[leafpress] Error getting vault path:", err);
+      throw new Error("Failed to determine vault path");
     }
   }
 
@@ -86,7 +97,8 @@ export class BinaryManager {
     }
 
     const { executable } = this.getPlatformInfo();
-    return path.join(this.getVaultPath(), ".obsidian/plugins/leafpress/bin", executable);
+    const configDir = this.app.vault.configDir;
+    return path.join(this.getVaultPath(), configDir, "plugins/leafpress/bin", executable);
   }
 
   private matchAssetName(pattern: string, assetName: string): boolean {
@@ -134,7 +146,7 @@ export class BinaryManager {
         throw new Error(`GitHub API error: ${releaseResponse.status}`);
       }
 
-      const release: GitHubRelease = JSON.parse(releaseResponse.text);
+      const release = JSON.parse(releaseResponse.text) as GitHubRelease;
 
       // Find asset matching pattern
       const asset = release.assets.find((a) => this.matchAssetName(assetName, a.name));
@@ -145,7 +157,8 @@ export class BinaryManager {
 
       // Create bin directory
       const vaultPath = this.getVaultPath();
-      const binDir = path.join(vaultPath, ".obsidian/plugins/leafpress/bin");
+      const configDir = this.app.vault.configDir;
+      const binDir = path.join(vaultPath, configDir, "plugins/leafpress/bin");
       await fs.mkdir(binDir, { recursive: true });
 
       // Download archive using Obsidian's requestUrl
@@ -197,8 +210,7 @@ export class BinaryManager {
 
   private extractTarGz(archivePath: string, binDir: string, executable: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
-      const tar = spawn('tar', ['-xzf', archivePath, '-C', binDir]);
+      const tar = spawn("tar", ["-xzf", archivePath, "-C", binDir]);
 
       tar.on('close', (code: number) => {
         if (code === 0) {
@@ -218,10 +230,8 @@ export class BinaryManager {
     });
   }
 
-  private extractZip(archivePath: string, binDir: string, executable: string): Promise<void> {
+  private extractZip(archivePath: string, binDir: string, _executable: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
-
       if (process.platform === "win32") {
         // Windows: use PowerShell's Expand-Archive
         const ps = spawn('powershell', [
@@ -318,7 +328,7 @@ export class BinaryManager {
       }
 
       return true;
-    } catch (err) {
+    } catch {
       return null;
     }
   }
@@ -337,7 +347,7 @@ export class BinaryManager {
         throw new Error(`GitHub API error: ${releaseResponse.status}`);
       }
 
-      const release: GitHubRelease = JSON.parse(releaseResponse.text);
+      const release = JSON.parse(releaseResponse.text) as GitHubRelease;
       let latestVersion = release.tag_name || "unknown";
       // Clean up version (remove leading 'v')
       latestVersion = latestVersion.replace(/^v/, "");
@@ -351,7 +361,7 @@ export class BinaryManager {
           const match = result.stdout.match(/v?(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)/);
           currentVersion = match ? match[1] : "0.0.0";
         }
-      } catch (err) {
+      } catch {
         // Could not determine current version
       }
 
@@ -373,16 +383,14 @@ export class BinaryManager {
       throw new Error("Cannot update custom binary path. Remove custom path from settings first.");
     }
 
-    const { executable } = this.getPlatformInfo();
     const binaryPath = this.getBinaryPath();
-    const binDir = path.dirname(binaryPath);
 
     try {
       // Backup current binary
       const backupPath = binaryPath + ".backup";
       try {
         await fs.copyFile(binaryPath, backupPath);
-      } catch (err) {
+      } catch {
         // Could not backup binary
       }
 
@@ -392,20 +400,20 @@ export class BinaryManager {
       // Clean up backup
       try {
         await fs.unlink(backupPath);
-      } catch (err) {
+      } catch {
         // Could not remove backup
       }
 
-      new Notice("✓ leafpress CLI updated successfully");
+      new Notice("CLI updated successfully");
     } catch (err) {
       console.error("[leafpress] Error updating binary:", err);
       // Try to restore from backup
       const backupPath = binaryPath + ".backup";
       try {
         await fs.copyFile(backupPath, binaryPath);
-        new Notice("✗ Update failed, restored previous version");
-      } catch (restoreErr) {
-        new Notice("✗ Update failed and could not restore backup");
+        new Notice("Update failed, restored previous version");
+      } catch {
+        new Notice("Update failed and could not restore backup");
       }
       throw err;
     }
@@ -450,8 +458,8 @@ export class BinaryManager {
       if (part1 === undefined && part2 === undefined) return 0;
 
       // Try to parse as numbers
-      const num1 = parseInt(part1!, 10);
-      const num2 = parseInt(part2!, 10);
+      const num1 = parseInt(part1, 10);
+      const num2 = parseInt(part2, 10);
       const isNum1 = !isNaN(num1);
       const isNum2 = !isNaN(num2);
 
@@ -463,7 +471,7 @@ export class BinaryManager {
         return 1;
       } else {
         // String comparison
-        if (part1 !== part2) return part1! > part2! ? 1 : -1;
+        if (part1 !== part2) return part1 > part2 ? 1 : -1;
       }
     }
 
@@ -482,11 +490,11 @@ export class BinaryManager {
         env: process.env,
       });
 
-      child.stdout?.on("data", (data) => {
+      child.stdout?.on("data", (data: Buffer) => {
         stdout += data.toString();
       });
 
-      child.stderr?.on("data", (data) => {
+      child.stderr?.on("data", (data: Buffer) => {
         stderr += data.toString();
       });
 

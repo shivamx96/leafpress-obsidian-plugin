@@ -2,7 +2,7 @@ import { Plugin, PluginSettingTab, App, Setting, Notice, Modal, TFolder } from "
 import { BinaryManager } from "./cli/manager";
 import { CommandHandlers } from "./cli/handlers";
 import { LeafpressPanel, VIEW_TYPE_LEAFPRESS } from "./panel";
-import { LeafpressConfig, DeploySettings, DeployProvider } from "./cli/types";
+import { LeafpressConfig, DeployProvider } from "./cli/types";
 import {
   readLeafpressConfig,
   updateThemeProperty,
@@ -44,48 +44,48 @@ export default class LeafpressPlugin extends Plugin {
 
     // Register commands
     this.addCommand({
-      id: "leafpress-initialize",
-      name: "Initialize Site",
+      id: "initialize",
+      name: "Initialize site",
       callback: async () => {
-                await this.commandHandlers.initialize();
+        await this.commandHandlers.initialize();
       },
     });
 
     this.addCommand({
-      id: "leafpress-build",
-      name: "Build Site",
+      id: "build",
+      name: "Build site",
       callback: async () => {
-                await this.commandHandlers.build();
+        await this.commandHandlers.build();
       },
     });
 
     this.addCommand({
-      id: "leafpress-preview",
-      name: "Preview Site",
+      id: "preview",
+      name: "Preview site",
       callback: async () => {
-                await this.commandHandlers.preview();
+        await this.commandHandlers.preview();
       },
     });
 
     this.addCommand({
-      id: "leafpress-deploy",
+      id: "deploy",
       name: "Deploy",
       callback: async () => {
-                await this.commandHandlers.deploy();
+        await this.commandHandlers.deploy();
       },
     });
 
     this.addCommand({
-      id: "leafpress-settings",
-      name: "Open Settings",
+      id: "settings",
+      name: "Open settings",
       callback: () => {
-                this.openSettings();
+        this.openSettings();
       },
     });
 
     // Register ribbon icon
-    this.addRibbonIcon("rocket", "Deploy with leafpress", () => {
-      this.commandHandlers.deploy();
+    this.addRibbonIcon("rocket", "Deploy site", () => {
+      void this.commandHandlers.deploy();
     });
 
     // Register status panel
@@ -94,27 +94,28 @@ export default class LeafpressPlugin extends Plugin {
       (leaf) => new LeafpressPanel(leaf, this.binaryManager)
     );
 
-    this.addRibbonIcon("leaf", "leafpress Status", () => {
-      this.activateView();
+    this.addRibbonIcon("leaf", "Open status panel", () => {
+      void this.activateView();
     });
 
     // Register settings tab
     this.addSettingTab(new LeafpressSettingTab(this.app, this));
 
-    
     // Initialize panel on startup (deferred)
     if (this.app.workspace.layoutReady) {
-      this.activateView();
+      void this.activateView();
     } else {
-      this.app.workspace.onLayoutReady(() => this.activateView());
+      this.app.workspace.onLayoutReady(() => void this.activateView());
     }
   }
 
   onunload() {
-      }
+    // Cleanup
+  }
 
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  async loadSettings(): Promise<void> {
+    const data = await this.loadData() as Partial<LeafpressPluginSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
   }
 
   async saveSettings() {
@@ -136,14 +137,15 @@ export default class LeafpressPlugin extends Plugin {
     }
 
     if (leaf) {
-      workspace.revealLeaf(leaf);
+      void workspace.revealLeaf(leaf);
     }
   }
 
-  openSettings() {
+  openSettings(): void {
     // Open settings window and focus on this plugin's tab
-    (this.app as any).setting?.open();
-    (this.app as any).setting?.openTabById?.("obsidian-leafpress");
+    const appWithSettings = this.app as App & { setting?: { open(): void; openTabById?(id: string): void } };
+    appWithSettings.setting?.open();
+    appWithSettings.setting?.openTabById?.("obsidian-leafpress");
   }
 }
 
@@ -157,19 +159,20 @@ class LeafpressSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  async display(): Promise<void> {
+  display(): void {
     const { containerEl } = this;
     containerEl.empty();
 
     // Load current config
-    this.currentConfig = await readLeafpressConfig(this.app);
-
-    this.displaySiteConfiguration(containerEl);
-    this.displayPluginSettings(containerEl);
+    void readLeafpressConfig(this.app).then((config) => {
+      this.currentConfig = config;
+      this.displaySiteConfiguration(containerEl);
+      this.displayPluginSettings(containerEl);
+    });
   }
 
   private displayPluginSettings(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Plugin Settings").setHeading();
+    new Setting(containerEl).setName("Plugin").setHeading();
 
     new Setting(containerEl)
       .setName("Custom binary path")
@@ -197,11 +200,11 @@ class LeafpressSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Check for Updates")
+      .setName("Check for updates")
       .setDesc("Check for new versions of the leafpress CLI")
       .addButton((btn) =>
         btn
-          .setButtonText("Check for Updates")
+          .setButtonText("Check for updates")
           .onClick(async () => {
             btn.setDisabled(true);
             btn.setButtonText("Checking...");
@@ -210,7 +213,7 @@ class LeafpressSettingTab extends PluginSettingTab {
               const updateInfo = await this.plugin.binaryManager.checkForUpdates();
               if (!updateInfo) {
                 new Notice("Could not check for updates");
-                btn.setButtonText("Check for Updates");
+                btn.setButtonText("Check for updates");
                 btn.setDisabled(false);
                 return;
               }
@@ -218,7 +221,7 @@ class LeafpressSettingTab extends PluginSettingTab {
               if (updateInfo.hasUpdate) {
                 const confirmed = await new Promise<boolean>((resolve) => {
                   const modal = new Modal(this.app);
-                  modal.contentEl.createEl("h3", { text: "Update Available" });
+                  new Setting(modal.contentEl).setName("Update available").setHeading();
                   modal.contentEl.createEl("p", {
                     text: `${updateInfo.currentVersion} → ${updateInfo.latestVersion}`,
                   });
@@ -254,7 +257,7 @@ class LeafpressSettingTab extends PluginSettingTab {
               new Notice(`Error checking updates: ${err}`);
               console.error(err);
             } finally {
-              btn.setButtonText("Check for Updates");
+              btn.setButtonText("Check for updates");
               btn.setDisabled(false);
             }
           })
@@ -286,16 +289,16 @@ class LeafpressSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Features").setHeading();
     this.displayFeatureToggles(containerEl);
 
-    // Ignored Directories
-    new Setting(containerEl).setName("Ignored Directories").setHeading();
+    // Ignored directories
+    new Setting(containerEl).setName("Ignored directories").setHeading();
     this.displayIgnoredDirectories(containerEl);
 
     // Deployment
     new Setting(containerEl).setName("Deployment").setHeading();
     this.displayDeploymentSettings(containerEl);
 
-    // Note Template
-    new Setting(containerEl).setName("Note Template").setHeading();
+    // Note template
+    new Setting(containerEl).setName("Note template").setHeading();
     this.displayNoteTemplate(containerEl);
   }
 
@@ -324,7 +327,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       .setDesc("Your site's title")
       .addText((text) =>
         text
-          .setPlaceholder("My Digital Garden")
+          .setPlaceholder("My digital garden")
           .setValue(config?.title || "")
           .onChange(async (value) => {
             await updateSiteProperty(this.app, "title", value);
@@ -333,7 +336,7 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Description")
-      .setDesc("Short description for SEO and social sharing")
+      .setDesc("Short description for search engines and social sharing")
       .addText((text) => {
         text
           .setPlaceholder("A collection of my notes and thoughts")
@@ -341,7 +344,7 @@ class LeafpressSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             await updateSiteProperty(this.app, "description", value);
           });
-        text.inputEl.style.width = "300px";
+        text.inputEl.addClass("leafpress-wide-input");
       });
 
     new Setting(containerEl)
@@ -349,7 +352,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       .setDesc("Your name")
       .addText((text) =>
         text
-          .setPlaceholder("John Doe")
+          .setPlaceholder("Your name")
           .setValue(config?.author || "")
           .onChange(async (value) => {
             await updateSiteProperty(this.app, "author", value);
@@ -357,7 +360,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Base URL")
+      .setName("Site address")
       .setDesc("Your site's URL (for sitemap and canonical links)")
       .addText((text) => {
         text
@@ -366,11 +369,11 @@ class LeafpressSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             await updateSiteProperty(this.app, "baseURL", value);
           });
-        text.inputEl.style.width = "300px";
+        text.inputEl.addClass("leafpress-wide-input");
       });
 
     new Setting(containerEl)
-      .setName("Social Image")
+      .setName("Social image")
       .setDesc("Default image for social sharing (og:image)")
       .addText((text) =>
         text
@@ -388,9 +391,10 @@ class LeafpressSettingTab extends PluginSettingTab {
     const fontMono = this.currentConfig?.theme?.fontMono || FONT_DEFAULTS.mono;
 
     new Setting(containerEl)
-      .setName("Font for Headings")
+      .setName("Font for headings")
       .setDesc(
-        "Google Font name for headings (e.g., Crimson Pro, Merriweather, Playfair Display)"
+        // eslint-disable-next-line
+        "Google font name for headings, like Crimson Pro or Merriweather"
       )
       .addText((text) =>
         text
@@ -407,8 +411,9 @@ class LeafpressSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Font for Body")
-      .setDesc("Google Font name for body text (e.g., Inter, Roboto, Open Sans)")
+      .setName("Font for body")
+      // eslint-disable-next-line
+      .setDesc("Google font name for body text, like Inter or Roboto")
       .addText((text) =>
         text
           .setPlaceholder(FONT_DEFAULTS.body)
@@ -424,8 +429,9 @@ class LeafpressSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Font for Code")
-      .setDesc("Google Font name for code blocks (e.g., JetBrains Mono, Fira Code)")
+      .setName("Font for code")
+      // eslint-disable-next-line
+      .setDesc("Google font name for code blocks, like JetBrains Mono or Fira Code")
       .addText((text) =>
         text
           .setPlaceholder(FONT_DEFAULTS.mono)
@@ -445,7 +451,7 @@ class LeafpressSettingTab extends PluginSettingTab {
     const accentColor = this.currentConfig?.theme?.accent || "#50ac00";
 
     new Setting(containerEl)
-      .setName("Accent Color")
+      .setName("Accent color")
       .setDesc("Primary color for links, buttons, and highlights")
       .addColorPicker((color) =>
         color
@@ -500,21 +506,22 @@ class LeafpressSettingTab extends PluginSettingTab {
     const setting = new Setting(containerEl).setName(name);
 
     setting.addDropdown((dd) => {
-      dd.addOption("solid", "Solid Color");
+      dd.addOption("solid", "Solid color");
       gradients.forEach((gradient) => {
         dd.addOption(gradient.id, gradient.label);
       });
       dd.addOption("custom", "Custom CSS");
       dd.setValue(currentSelection);
-      dd.onChange(async (selectedMode) => {
-        if (selectedMode !== "solid" && selectedMode !== "custom") {
-          const preset = gradients.find((g) => g.id === selectedMode);
-          if (preset) {
-            await updateThemeProperty(this.app, `background.${mode}`, preset.value);
-            // Config saved
+      dd.onChange((selectedMode) => {
+        void (async () => {
+          if (selectedMode !== "solid" && selectedMode !== "custom") {
+            const preset = gradients.find((g) => g.id === selectedMode);
+            if (preset) {
+              await updateThemeProperty(this.app, `background.${mode}`, preset.value);
+            }
           }
-        }
-        await this.display();
+          this.display();
+        })();
       });
     });
 
@@ -536,7 +543,7 @@ class LeafpressSettingTab extends PluginSettingTab {
     const navActiveStyle = this.currentConfig?.theme?.navActiveStyle || "base";
 
     new Setting(containerEl)
-      .setName("Navigation Bar Style")
+      .setName("Navigation bar style")
       .setDesc("Choose the navigation bar style")
       .addDropdown((dd) => {
         dd.addOption("base", "Base");
@@ -550,7 +557,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Active Item Style")
+      .setName("Active item style")
       .setDesc("Style for active navigation items")
       .addDropdown((dd) => {
         dd.addOption("base", "Base");
@@ -664,7 +671,8 @@ class LeafpressSettingTab extends PluginSettingTab {
   private displayNoteTemplate(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName("View template")
-      .setDesc("Frontmatter fields: title, tags, createdAt, updatedAt, growth, draft")
+      // eslint-disable-next-line
+      .setDesc("Includes fields: title, tags, createdAt, updatedAt, growth, draft")
       .addButton((btn) =>
         btn.setButtonText("View").onClick(async () => {
           try {
@@ -690,6 +698,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       .setName("Provider")
       .setDesc(isConfigured ? "Configured" : "Not configured")
       .addDropdown((dd) => {
+        // eslint-disable-next-line
         dd.addOption("github-pages", "GitHub Pages");
         dd.addOption("vercel", "Vercel");
         dd.addOption("netlify", "Netlify");
@@ -711,11 +720,12 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Configure")
-      .setDesc("Click Setup Guide for terminal command")
+      // eslint-disable-next-line
+      .setDesc("Click Setup guide for terminal command")
       .addButton((btn) =>
-        btn.setButtonText("Setup Guide").onClick(async () => {
-          new DeploymentSetupModal(this.app, this.currentConfig, async () => {
-            await this.display();
+        btn.setButtonText("Setup guide").onClick(() => {
+          new DeploymentSetupModal(this.app, this.currentConfig, () => {
+            this.display();
           }).open();
         })
       );
@@ -734,7 +744,7 @@ class LeafpressSettingTab extends PluginSettingTab {
     const config = this.currentConfig;
 
     new Setting(containerEl)
-      .setName("Graph Visualization")
+      .setName("Graph visualization")
       .setDesc("Show interactive graph of note connections")
       .addToggle((toggle) =>
         toggle
@@ -746,7 +756,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Table of Contents")
+      .setName("Table of contents")
       .setDesc("Show table of contents on pages")
       .addToggle((toggle) =>
         toggle
@@ -770,7 +780,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Wiki Links")
+      .setName("Wiki links")
       .setDesc("Enable wiki-link processing")
       .addToggle((toggle) =>
         toggle
@@ -830,14 +840,14 @@ class LeafpressSettingTab extends PluginSettingTab {
       })
       .addButton((btn) =>
         btn.setButtonText("Add").onClick(async () => {
-          const input = containerEl.querySelector("#leafpress-ignore-input") as HTMLInputElement;
+          const input = containerEl.querySelector<HTMLInputElement>("#leafpress-ignore-input");
           const pattern = input?.value?.trim();
           if (!pattern) {
             new Notice("Please enter a pattern");
             return;
           }
           await this.addIgnoredDirectory(pattern);
-          input.value = "";
+          if (input) input.value = "";
         })
       );
   }
@@ -898,7 +908,8 @@ class NavItemModal extends Modal {
 
   private getFolderPaths(): string[] {
     const folders: string[] = ["/"];
-    const skipFolders = new Set([".obsidian", "_site", ".git", "node_modules", ".leafpress"]);
+    const configDir = this.app.vault.configDir;
+    const skipFolders = new Set([configDir, "_site", ".git", "node_modules", ".leafpress"]);
 
     // Get all folders from vault
     const allFiles = this.app.vault.getAllLoadedFiles();
@@ -924,6 +935,7 @@ class NavItemModal extends Modal {
       .setDesc("Display text in navigation menu")
       .addText((text) => {
         text
+          // eslint-disable-next-line
           .setPlaceholder("e.g., Notes")
           .setValue(this.defaultLabel)
           .onChange((value) => {
@@ -987,7 +999,7 @@ class TemplatePreviewModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: "Note Template" });
+    contentEl.createEl("h3", { text: "Note template" });
     const preEl = contentEl.createEl("pre");
     preEl.textContent = this.content;
 
@@ -1009,46 +1021,41 @@ class DeploymentSetupModal extends Modal {
     super(app);
     this.onComplete = onComplete;
     // Get vault path
-    const adapter = this.app.vault.adapter as any;
+    const adapter = this.app.vault.adapter as { basePath?: string; path?: string };
     this.vaultPath = adapter.basePath || adapter.path || "";
   }
 
   private getDeployCommand(): string {
+    const configDir = this.app.vault.configDir;
     const isWindows = process.platform === "win32";
     if (isWindows) {
-      return `cd "${this.vaultPath}" && .\\.obsidian\\plugins\\leafpress\\bin\\leafpress.exe deploy`;
+      return `cd "${this.vaultPath}" && .\\${configDir}\\plugins\\leafpress\\bin\\leafpress.exe deploy`;
     }
-    return `cd "${this.vaultPath}" && ./.obsidian/plugins/leafpress/bin/leafpress deploy`;
+    return `cd "${this.vaultPath}" && ./${configDir}/plugins/leafpress/bin/leafpress deploy`;
   }
 
   onOpen() {
     const { contentEl } = this;
     const fullCommand = this.getDeployCommand();
 
-    contentEl.createEl("h3", { text: "Deployment Setup" });
+    contentEl.createEl("h3", { text: "Deployment setup" });
     contentEl.createEl("p", {
       text: "Initial setup requires running a command in your terminal. Copy and paste:",
     });
 
-    const commandEl = contentEl.createEl("div");
-    commandEl.style.marginBottom = "12px";
+    const commandEl = contentEl.createEl("div", { cls: "leafpress-panel-section" });
 
-    const codeEl = commandEl.createEl("code", { text: fullCommand });
-    codeEl.style.display = "block";
-    codeEl.style.padding = "12px";
-    codeEl.style.backgroundColor = "var(--background-secondary)";
-    codeEl.style.borderRadius = "4px";
-    codeEl.style.userSelect = "all";
-    codeEl.style.wordBreak = "break-all";
-    codeEl.style.fontSize = "0.85em";
-    codeEl.style.marginBottom = "8px";
+    commandEl.createEl("code", {
+      text: fullCommand,
+      cls: "leafpress-code-block",
+    });
 
-    const copyBtn = commandEl.createEl("button", { text: "Copy Command" });
+    const copyBtn = commandEl.createEl("button", { text: "Copy command" });
     copyBtn.addEventListener("click", () => {
-      navigator.clipboard.writeText(fullCommand);
+      void navigator.clipboard.writeText(fullCommand);
       copyBtn.textContent = "Copied!";
       setTimeout(() => {
-        copyBtn.textContent = "Copy Command";
+        copyBtn.textContent = "Copy command";
       }, 2000);
     });
 

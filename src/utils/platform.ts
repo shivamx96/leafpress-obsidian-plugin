@@ -31,7 +31,7 @@ export function isPortInUse(port: number): Promise<boolean> {
       ]);
       let output = "";
 
-      proc.stdout?.on("data", (data) => {
+      proc.stdout?.on("data", (data: Buffer) => {
         output += data.toString();
       });
 
@@ -45,7 +45,7 @@ export function isPortInUse(port: number): Promise<boolean> {
       const proc = spawn("lsof", ["-t", "-i", `:${port}`]);
       let output = "";
 
-      proc.stdout?.on("data", (data) => {
+      proc.stdout?.on("data", (data: Buffer) => {
         output += data.toString();
       });
 
@@ -78,7 +78,7 @@ export function killPortProcess(port: number): Promise<void> {
       const findProc = spawn("lsof", ["-t", "-i", `:${port}`]);
       let pids = "";
 
-      findProc.stdout?.on("data", (data) => {
+      findProc.stdout?.on("data", (data: Buffer) => {
         pids += data.toString();
       });
 

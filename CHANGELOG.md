@@ -1,3 +1,7 @@
+### v0.1.4
+
+- Change plugin name and description
+
 ### v0.1.3
 
 **Features**

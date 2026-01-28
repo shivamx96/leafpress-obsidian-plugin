@@ -1,10 +1,37 @@
-import { ItemView, WorkspaceLeaf, Notice, EventRef } from "obsidian";
+import {ItemView, WorkspaceLeaf, Notice, EventRef} from "obsidian";
 import { ChildProcess } from "child_process";
 import * as crypto from "crypto";
 import { BinaryManager } from "./cli/manager";
 import { readLeafpressConfig } from "./utils/config";
-import { LeafpressConfig } from "./cli/types";
 import { openInBrowser, isPortInUse, killPortProcess } from "./utils/platform";
+
+interface VaultAdapter {
+  basePath?: string;
+  path?: string;
+  vault?: { dir?: string };
+  read(path: string): Promise<string>;
+  list(path: string): Promise<{ files: string[]; folders: string[] }>;
+}
+
+interface DeployState {
+  lastDeploy?: {
+    timestamp: string;
+    url: string;
+    sourceFiles?: Record<string, string>;
+  };
+}
+
+interface PendingFile {
+  status: string;
+  file: string;
+}
+
+interface DeploymentStatus {
+  pendingCount: number;
+  lastDeploy: string;
+  liveUrl: string;
+  pendingFiles: PendingFile[];
+}
 
 export const VIEW_TYPE_LEAFPRESS = "leafpress-view";
 
@@ -25,15 +52,15 @@ export class LeafpressPanel extends ItemView {
     if (this.vaultPath) return this.vaultPath;
 
     try {
-      const adapter = this.app.vault.adapter as any;
+      const adapter = this.app.vault.adapter as VaultAdapter;
 
       // Try different properties
       if (adapter.basePath && typeof adapter.basePath === "string") {
         this.vaultPath = adapter.basePath;
       } else if (adapter.path && typeof adapter.path === "string") {
         this.vaultPath = adapter.path;
-      } else if ((adapter as any).vault?.dir) {
-        this.vaultPath = (adapter as any).vault.dir;
+      } else if (adapter.vault?.dir) {
+        this.vaultPath = adapter.vault.dir;
       }
 
       if (!this.vaultPath || typeof this.vaultPath !== "string") {
@@ -52,6 +79,7 @@ export class LeafpressPanel extends ItemView {
   }
 
   getDisplayText() {
+    // eslint-disable-next-line
     return "leafpress";
   }
 
@@ -64,14 +92,14 @@ export class LeafpressPanel extends ItemView {
 
       // Set up file change listener on first call
       if (!this.fileChangeListener) {
-        this.fileChangeListener = this.app.vault.on("modify", async (file) => {
+        this.fileChangeListener = this.app.vault.on("modify", (file) => {
           // Refresh when markdown files, deployment state, or _site directory changes
           if (
             file.path.endsWith(".md") ||
             file.name === ".leafpress-deploy-state.json" ||
             file.path.startsWith("_site/")
           ) {
-            this.renderPanel();
+            void this.renderPanel();
           }
         });
 
@@ -91,10 +119,10 @@ export class LeafpressPanel extends ItemView {
     try {
       const container = this.containerEl.children[1];
       container.empty();
+      // eslint-disable-next-line
       container.createEl("h2", { text: "leafpress" });
 
-      const content = container.createEl("div");
-      content.style.padding = "10px";
+      const content = container.createEl("div", { cls: "leafpress-panel-content" });
 
       // Check server status
       const serverRunning = await this.isServerRunning();
@@ -105,14 +133,14 @@ export class LeafpressPanel extends ItemView {
       // Count pages built
       const pageCount = await this.countBuiltPages();
       const pageStatus = content.createEl("p");
-      pageStatus.createEl("strong", { text: "Pages Built: " });
+      pageStatus.createEl("strong", { text: "Pages built: " });
       pageStatus.append(pageCount.toString());
 
       // Load config for deployment info
       const config = await readLeafpressConfig(this.app);
       const deploymentConfigured = !!config?.deploy?.provider;
 
-      let statusInfo: any = null;
+      let statusInfo: DeploymentStatus | null = null;
 
       if (deploymentConfigured && config?.deploy) {
         // Get deployment status
@@ -129,16 +157,13 @@ export class LeafpressPanel extends ItemView {
         deployStatus.append(providerLabel[provider] || provider);
 
         if (statusInfo?.lastDeploy) {
-          const lastDeployEl = content.createEl("p");
-          lastDeployEl.style.fontSize = "0.9rem";
-          lastDeployEl.style.color = "var(--text-muted, #999)";
-          lastDeployEl.createEl("strong", { text: "Last Deploy: " });
+          const lastDeployEl = content.createEl("p", { cls: "leafpress-deploy-info" });
+          lastDeployEl.createEl("strong", { text: "Last deploy: " });
           lastDeployEl.append(statusInfo.lastDeploy);
         }
 
-        if (statusInfo?.pendingCount > 0) {
-          const pendingEl = content.createEl("p");
-          pendingEl.style.color = "var(--text-warning, #ff9800)";
+        if (statusInfo && statusInfo.pendingCount > 0) {
+          const pendingEl = content.createEl("p", { cls: "leafpress-warning-text" });
           pendingEl.createEl("strong", {
             text: `⚠ ${statusInfo.pendingCount} file(s) pending`,
           });
@@ -146,39 +171,39 @@ export class LeafpressPanel extends ItemView {
       }
 
       // Add action buttons
-      const buttonContainer = content.createEl("div");
-      buttonContainer.style.marginTop = "15px";
-      buttonContainer.style.display = "flex";
-      buttonContainer.style.gap = "8px";
-      buttonContainer.style.flexWrap = "wrap";
+      const buttonContainer = content.createEl("div", { cls: "leafpress-panel-buttons" });
 
       // Start/Stop Server button
-      const serverBtn = buttonContainer.createEl("button", { text: serverRunning ? "Stop Server" : "Start Server" });
-      serverBtn.style.flex = "1";
-      serverBtn.style.minWidth = "100px";
-      serverBtn.addEventListener("click", async () => {
+      const serverBtn = buttonContainer.createEl("button", {
+        text: serverRunning ? "Stop server" : "Start server",
+        cls: "leafpress-panel-btn",
+      });
+      serverBtn.addEventListener("click", () => {
         serverBtn.disabled = true;
         previewBtn.disabled = true;
         if (deployBtn) deployBtn.disabled = true;
         serverBtn.textContent = serverRunning ? "Stopping..." : "Starting...";
 
-        try {
-          if (serverRunning) {
-            await this.stopServer();
-            await this.waitForServerStopped(5000); // Wait up to 5 seconds for port to free
-          } else {
-            await this.startServer();
-            await this.waitForServerReady(10000); // Wait up to 10 seconds
+        void (async () => {
+          try {
+            if (serverRunning) {
+              await this.stopServer();
+              await this.waitForServerStopped(5000);
+            } else {
+              await this.startServer();
+              await this.waitForServerReady(10000);
+            }
+          } finally {
+            await this.renderPanel();
           }
-        } finally {
-          await this.renderPanel();
-        }
+        })();
       });
 
       // Open Preview button
-      const previewBtn = buttonContainer.createEl("button", { text: "Open Preview" });
-      previewBtn.style.flex = "1";
-      previewBtn.style.minWidth = "100px";
+      const previewBtn = buttonContainer.createEl("button", {
+        text: "Open preview",
+        cls: "leafpress-panel-btn",
+      });
       previewBtn.disabled = !serverRunning;
       previewBtn.title = serverRunning ? "Open preview in browser" : "Server must be running to open preview";
       previewBtn.addEventListener("click", () => {
@@ -193,23 +218,14 @@ export class LeafpressPanel extends ItemView {
           const pendingSummary = content.createEl("div", {
             cls: "leafpress-pending-files",
           });
-          pendingSummary.style.backgroundColor = "var(--background-secondary, #f5f5f5)";
-          pendingSummary.style.border = "1px solid var(--border-color, #ddd)";
-          pendingSummary.style.borderRadius = "4px";
-          pendingSummary.style.padding = "8px";
-          pendingSummary.style.marginTop = "16px";
-          pendingSummary.style.marginBottom = "12px";
-          pendingSummary.style.fontSize = "0.85rem";
 
           pendingSummary.createEl("strong", {
             text: "Pending changes:",
           });
-          const fileList = pendingSummary.createEl("ul");
-          fileList.style.margin = "4px 0";
-          fileList.style.paddingLeft = "20px";
+          const fileList = pendingSummary.createEl("ul", { cls: "leafpress-file-list" });
 
-          statusInfo.pendingFiles.slice(0, 5).forEach((file: any) => {
-            const li = fileList.createEl("li");
+          statusInfo.pendingFiles.slice(0, 5).forEach((file: PendingFile) => {
+            const li = fileList.createEl("li", { cls: "leafpress-file-item" });
             let icon = "?";
             if (file.status === "added") {
               icon = "+";
@@ -219,52 +235,48 @@ export class LeafpressPanel extends ItemView {
               icon = "−";
             }
             li.textContent = `${icon} ${file.file}`;
-            li.style.fontSize = "0.85rem";
-            li.style.marginBottom = "2px";
           });
 
           if (statusInfo.pendingFiles.length > 5) {
-            const more = fileList.createEl("li");
+            const more = fileList.createEl("li", { cls: "leafpress-more-files" });
             more.textContent = `... and ${statusInfo.pendingFiles.length - 5} more`;
-            more.style.fontSize = "0.85rem";
-            more.style.fontStyle = "italic";
-            more.style.color = "var(--text-muted, #999)";
           }
         }
 
-        deployBtn = buttonContainer.createEl("button", { text: "Deploy" });
-        deployBtn.style.flex = "1";
-        deployBtn.style.minWidth = "100px";
-        deployBtn.style.backgroundColor = "var(--interactive-accent, #7c3aed)";
-        deployBtn.style.color = "white";
-        deployBtn.addEventListener("click", async () => {
-          deployBtn!.disabled = true;
-          deployBtn!.textContent = "Deploying...";
+        deployBtn = buttonContainer.createEl("button", {
+          text: "Deploy",
+          cls: "leafpress-deploy-btn",
+        });
+        deployBtn.addEventListener("click", () => {
+          if (!deployBtn) return;
+          deployBtn.disabled = true;
+          deployBtn.textContent = "Deploying...";
 
-          try {
-            if (this.binaryManager) {
-              await this.binaryManager.ensureBinary();
-              const result = await this.binaryManager.execCommand([
-                "deploy",
-                "--skip-build",
-              ]);
+          void (async () => {
+            try {
+              if (this.binaryManager) {
+                await this.binaryManager.ensureBinary();
+                const result = await this.binaryManager.execCommand([
+                  "deploy",
+                  "--skip-build",
+                ]);
 
-              if (result.success) {
-                const urlMatch = result.stdout.match(/https?:\/\/[^\s]+/);
-                const url = urlMatch ? urlMatch[0] : "Deployment successful";
-                new Notice(`✓ Deployed: ${url}`);
-              } else {
-                new Notice("✗ Deployment failed");
-                console.error(result.stderr);
+                if (result.success) {
+                  const urlMatch = result.stdout.match(/https?:\/\/[^\s]+/);
+                  const url = urlMatch ? urlMatch[0] : "Deployment successful";
+                  new Notice(`Deployed: ${url}`);
+                } else {
+                  new Notice("Deployment failed");
+                  console.error(result.stderr);
+                }
               }
+            } catch (err) {
+              new Notice(`✗ Error: ${err}`);
+              console.error(err);
+            } finally {
+              await this.renderPanel();
             }
-          } catch (err) {
-            new Notice(`✗ Error: ${err}`);
-            console.error(err);
-          } finally {
-            // Refresh the panel after deployment attempt
-            await this.renderPanel();
-          }
+          })();
         });
       }
 
@@ -282,7 +294,7 @@ export class LeafpressPanel extends ItemView {
 
   private async countBuiltPages(): Promise<number> {
     try {
-      const vaultAdapter = (this.app.vault.adapter as any);
+      const vaultAdapter = (this.app.vault.adapter);
       const sitePath = "_site";
 
       // Recursively count all HTML files in _site directory
@@ -347,7 +359,7 @@ export class LeafpressPanel extends ItemView {
         // Handle unexpected server exit
         this.serverProcess.on("exit", () => {
           this.serverProcess = null;
-          this.renderPanel();
+          void this.renderPanel();
         });
       }
     } catch (err) {
@@ -376,15 +388,17 @@ export class LeafpressPanel extends ItemView {
   private waitForServerReady(timeoutMs: number): Promise<void> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const checkInterval = setInterval(async () => {
-        const isReady = await this.isServerRunning();
-        const elapsed = Date.now() - startTime;
-        if (isReady || elapsed > timeoutMs) {
-          clearInterval(checkInterval);
-          const idx = this.activeIntervals.indexOf(checkInterval);
-          if (idx > -1) this.activeIntervals.splice(idx, 1);
-          resolve();
-        }
+      const checkInterval = setInterval(() => {
+        void (async () => {
+          const isReady = await this.isServerRunning();
+          const elapsed = Date.now() - startTime;
+          if (isReady || elapsed > timeoutMs) {
+            clearInterval(checkInterval);
+            const idx = this.activeIntervals.indexOf(checkInterval);
+            if (idx > -1) this.activeIntervals.splice(idx, 1);
+            resolve();
+          }
+        })();
       }, 200);
       this.activeIntervals.push(checkInterval);
     });
@@ -393,41 +407,38 @@ export class LeafpressPanel extends ItemView {
   private waitForServerStopped(timeoutMs: number): Promise<void> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const checkInterval = setInterval(async () => {
-        const isRunning = await this.isServerRunning();
-        const elapsed = Date.now() - startTime;
-        if (!isRunning || elapsed > timeoutMs) {
-          clearInterval(checkInterval);
-          const idx = this.activeIntervals.indexOf(checkInterval);
-          if (idx > -1) this.activeIntervals.splice(idx, 1);
-          resolve();
-        }
+      const checkInterval = setInterval(() => {
+        void (async () => {
+          const isRunning = await this.isServerRunning();
+          const elapsed = Date.now() - startTime;
+          if (!isRunning || elapsed > timeoutMs) {
+            clearInterval(checkInterval);
+            const idx = this.activeIntervals.indexOf(checkInterval);
+            if (idx > -1) this.activeIntervals.splice(idx, 1);
+            resolve();
+          }
+        })();
       }, 200);
       this.activeIntervals.push(checkInterval);
     });
   }
 
-  private async getDeploymentStatus(): Promise<{
-    pendingCount: number;
-    lastDeploy: string;
-    liveUrl: string;
-    pendingFiles: Array<{ status: string; file: string }>;
-  } | null> {
+  private async getDeploymentStatus(): Promise<DeploymentStatus | null> {
     try {
-      const vaultPath = this.getVaultPath();
       const stateFilePath = ".leafpress-deploy-state.json";
+      const configDir = this.app.vault.configDir;
 
       // Read deployment state file
       let stateContent: string;
       try {
         stateContent = await this.app.vault.adapter.read(stateFilePath);
-      } catch (err) {
+      } catch {
         return null;
       }
 
-      let deployState: any;
+      let deployState: DeployState;
       try {
-        deployState = JSON.parse(stateContent);
+        deployState = JSON.parse(stateContent) as DeployState;
       } catch (parseErr) {
         console.error("[leafpress] Failed to parse deployment state JSON:", parseErr);
         return null;
@@ -460,7 +471,7 @@ export class LeafpressPanel extends ItemView {
       // Load config to get ignore patterns
       const config = await readLeafpressConfig(this.app);
       const ignorePatterns = config?.ignore || [];
-      const defaultIgnore = [".DS_Store", "Thumbs.db", ".obsidian", "_site"];
+      const defaultIgnore = [".DS_Store", "Thumbs.db", configDir, "_site"];
 
       const shouldIgnore = (filePath: string): boolean => {
         const normalized = filePath.replace(/^\//, "");
@@ -476,7 +487,7 @@ export class LeafpressPanel extends ItemView {
       };
 
       // Compare source files with deployed state
-      const pendingFiles: Array<{ status: string; file: string }> = [];
+      const pendingFiles: PendingFile[] = [];
 
       try {
         // Get current source files and their hashes
@@ -487,7 +498,7 @@ export class LeafpressPanel extends ItemView {
         for (const [file, hash] of Object.entries(currentSourceFiles)) {
           if (shouldIgnore(file)) continue;
 
-          const deployedHash = deployedSourceFiles[file as string];
+          const deployedHash = deployedSourceFiles[file];
           if (!deployedHash) {
             pendingFiles.push({
               status: "added",
@@ -512,7 +523,7 @@ export class LeafpressPanel extends ItemView {
             });
           }
         }
-      } catch (err) {
+      } catch {
         // Could not scan source files
       }
 
@@ -530,6 +541,7 @@ export class LeafpressPanel extends ItemView {
 
   private async getSourceFilesWithHashes(): Promise<Record<string, string>> {
     const files: Record<string, string> = {};
+    const configDir = this.app.vault.configDir;
 
     // Load config to get ignore patterns and output directory
     const config = await readLeafpressConfig(this.app);
@@ -545,7 +557,7 @@ export class LeafpressPanel extends ItemView {
       ".leafpress": true,
       ".git": true,
       ".gitignore": true,
-      ".obsidian": true,
+      [configDir]: true,
       "node_modules": true,
       "docs": true,
     };
@@ -603,7 +615,7 @@ export class LeafpressPanel extends ItemView {
         const content = await this.app.vault.cachedRead(file);
         const hash = this.sha1Hash(content);
         files[`/${filePath}`] = hash;
-      } catch (err) {
+      } catch {
         // Error reading file
       }
     }
@@ -612,7 +624,7 @@ export class LeafpressPanel extends ItemView {
     try {
       const configContent = await this.app.vault.adapter.read("leafpress.json");
       files["/leafpress.json"] = this.sha1Hash(configContent);
-    } catch (err) {
+    } catch {
       // Config might not exist
     }
 
@@ -628,7 +640,7 @@ export class LeafpressPanel extends ItemView {
     const files: string[] = [];
 
     try {
-      const adapter = this.app.vault.adapter as any;
+      const adapter = this.app.vault.adapter;
       const baseLength = dir.length + (dir.endsWith("/") ? 0 : 1);
 
       const walkDir = async (currentDir: string) => {
@@ -648,13 +660,13 @@ export class LeafpressPanel extends ItemView {
               await walkDir(folder);
             }
           }
-        } catch (err) {
+        } catch {
           // Error reading directory
         }
       };
 
       await walkDir(dir);
-    } catch (err) {
+    } catch {
       // Error walking directory
     }
 

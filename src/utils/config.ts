@@ -6,9 +6,9 @@ export async function readLeafpressConfig(
 ): Promise<LeafpressConfig | null> {
   try {
     const configText = await app.vault.adapter.read("leafpress.json");
-    const config: LeafpressConfig = JSON.parse(configText);
+    const config = JSON.parse(configText) as LeafpressConfig;
     return config;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -32,11 +32,12 @@ export async function writeLeafpressConfig(
 export async function updateThemeProperty(
   app: App,
   path: string,
-  value: any
+  value: unknown
 ): Promise<boolean> {
   try {
     const config = await readLeafpressConfig(app);
     if (!config) {
+      // eslint-disable-next-line
       new Notice("leafpress.json not found. Initialize your site first.");
       return false;
     }
@@ -49,13 +50,13 @@ export async function updateThemeProperty(
     // Handle nested properties (e.g., 'background.light')
     const parts = path.split(".");
     if (parts.length === 1) {
-      config.theme[parts[0] as keyof typeof config.theme] = value;
+      // Type assertion needed because theme properties have different types
+      (config.theme as Record<string, unknown>)[parts[0]] = value;
     } else if (parts[0] === "background") {
       if (!config.theme.background) {
         config.theme.background = { light: "#ffffff", dark: "#1a1a1a" };
       }
-      config.theme.background[parts[1] as keyof typeof config.theme.background] =
-        value;
+      (config.theme.background as Record<string, unknown>)[parts[1]] = value;
     }
 
     await writeLeafpressConfig(app, config);
@@ -75,6 +76,7 @@ export async function updateFeatureToggle(
   try {
     const config = await readLeafpressConfig(app);
     if (!config) {
+      // eslint-disable-next-line
       new Notice("leafpress.json not found. Initialize your site first.");
       return false;
     }
@@ -97,6 +99,7 @@ export async function updateSiteProperty(
   try {
     const config = await readLeafpressConfig(app);
     if (!config) {
+      // eslint-disable-next-line
       new Notice("leafpress.json not found. Initialize your site first.");
       return false;
     }

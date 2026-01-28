@@ -6,7 +6,8 @@
   "types": "main.d.ts",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit && node esbuild.config.mjs production"
+    "build": "tsc -noEmit && node esbuild.config.mjs production",
+    "lint": "eslint ."
   },
   "keywords": [
     "obsidian",
@@ -17,13 +18,14 @@
   "author": "Shivam",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "16.11.6",
-    "@typescript-eslint/eslint-plugin": "5.2.0",
-    "@typescript-eslint/parser": "5.2.0",
-    "builtin-modules": "3.2.0",
-    "esbuild": "0.13.12",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "8.54.0",
+    "@typescript-eslint/parser": "8.54.0",
+    "esbuild": "0.17.19",
+    "eslint": "^9.39.2",
+    "eslint-plugin-obsidianmd": "^0.1.9",
     "obsidian": "latest",
     "tslib": "2.4.0",
-    "typescript": "4.7.4"
+    "typescript": "5.9.3"
   }
 }
