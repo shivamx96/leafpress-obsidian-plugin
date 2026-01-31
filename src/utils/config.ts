@@ -37,7 +37,7 @@ export async function updateThemeProperty(
   try {
     const config = await readLeafpressConfig(app);
     if (!config) {
-      // eslint-disable-next-line -- Filename stylized as lowercase
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- Filename stylized as lowercase
       new Notice("leafpress.json not found. Initialize your site first.");
       return false;
     }
@@ -76,7 +76,7 @@ export async function updateFeatureToggle(
   try {
     const config = await readLeafpressConfig(app);
     if (!config) {
-      // eslint-disable-next-line -- Filename stylized as lowercase
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- Filename stylized as lowercase
       new Notice("leafpress.json not found. Initialize your site first.");
       return false;
     }
@@ -99,7 +99,7 @@ export async function updateSiteProperty(
   try {
     const config = await readLeafpressConfig(app);
     if (!config) {
-      // eslint-disable-next-line -- Filename stylized as lowercase
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- Filename stylized as lowercase
       new Notice("leafpress.json not found. Initialize your site first.");
       return false;
     }

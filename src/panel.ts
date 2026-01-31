@@ -79,7 +79,7 @@ export class LeafpressPanel extends ItemView {
   }
 
   getDisplayText() {
-    // eslint-disable-next-line -- Plugin name stylized as lowercase
+    // eslint-disable-next-line obsidianmd/ui/sentence-case -- Plugin name stylized as lowercase
     return "leafpress";
   }
 
@@ -119,7 +119,7 @@ export class LeafpressPanel extends ItemView {
     try {
       const container = this.containerEl.children[1];
       container.empty();
-      // eslint-disable-next-line -- Plugin name stylized as lowercase
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- Plugin name stylized as lowercase
       container.createEl("h2", { text: "leafpress" });
 
       const content = container.createEl("div", { cls: "leafpress-panel-content" });
