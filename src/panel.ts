@@ -79,7 +79,7 @@ export class LeafpressPanel extends ItemView {
   }
 
   getDisplayText() {
-    // eslint-disable-next-line
+    // eslint-disable-next-line -- Plugin name stylized as lowercase
     return "leafpress";
   }
 
@@ -119,7 +119,7 @@ export class LeafpressPanel extends ItemView {
     try {
       const container = this.containerEl.children[1];
       container.empty();
-      // eslint-disable-next-line
+      // eslint-disable-next-line -- Plugin name stylized as lowercase
       container.createEl("h2", { text: "leafpress" });
 
       const content = container.createEl("div", { cls: "leafpress-panel-content" });
@@ -673,14 +673,11 @@ export class LeafpressPanel extends ItemView {
     return files;
   }
 
-  async onClose() {
-    // Clear any active intervals
+  onClose(): Promise<void> {
     for (const interval of this.activeIntervals) {
       clearInterval(interval);
     }
     this.activeIntervals = [];
-
-    // Note: We don't stop the server on panel close since user may want it running
-    // File change listener is automatically unregistered via registerEvent
+    return Promise.resolve();
   }
 }

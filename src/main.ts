@@ -393,7 +393,7 @@ class LeafpressSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Font for headings")
       .setDesc(
-        // eslint-disable-next-line
+        // eslint-disable-next-line -- Font names are proper nouns
         "Google font name for headings, like Crimson Pro or Merriweather"
       )
       .addText((text) =>
@@ -412,7 +412,7 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Font for body")
-      // eslint-disable-next-line
+      // eslint-disable-next-line -- Font names are proper nouns
       .setDesc("Google font name for body text, like Inter or Roboto")
       .addText((text) =>
         text
@@ -430,7 +430,7 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Font for code")
-      // eslint-disable-next-line
+      // eslint-disable-next-line -- Font names are proper nouns
       .setDesc("Google font name for code blocks, like JetBrains Mono or Fira Code")
       .addText((text) =>
         text
@@ -671,7 +671,7 @@ class LeafpressSettingTab extends PluginSettingTab {
   private displayNoteTemplate(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName("View template")
-      // eslint-disable-next-line
+      // eslint-disable-next-line -- Obsidian frontmatter field names are case-sensitive
       .setDesc("Includes fields: title, tags, createdAt, updatedAt, growth, draft")
       .addButton((btn) =>
         btn.setButtonText("View").onClick(async () => {
@@ -698,7 +698,7 @@ class LeafpressSettingTab extends PluginSettingTab {
       .setName("Provider")
       .setDesc(isConfigured ? "Configured" : "Not configured")
       .addDropdown((dd) => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line -- Brand name is stylized as-is
         dd.addOption("github-pages", "GitHub Pages");
         dd.addOption("vercel", "Vercel");
         dd.addOption("netlify", "Netlify");
@@ -720,7 +720,7 @@ class LeafpressSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Configure")
-      // eslint-disable-next-line
+      // eslint-disable-next-line -- Setup guide is a section within settings
       .setDesc("Click Setup guide for terminal command")
       .addButton((btn) =>
         btn.setButtonText("Setup guide").onClick(() => {
@@ -935,7 +935,7 @@ class NavItemModal extends Modal {
       .setDesc("Display text in navigation menu")
       .addText((text) => {
         text
-          // eslint-disable-next-line
+          // eslint-disable-next-line -- Example stated for explanation
           .setPlaceholder("e.g., Notes")
           .setValue(this.defaultLabel)
           .onChange((value) => {
